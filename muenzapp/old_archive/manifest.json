@@ -1,0 +1,22 @@
+{
+  "name": "MünzApp",
+  "short_name": "MünzApp",
+  "description": "Coin collection tracker",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2c3e50",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Ccircle cx='96' cy='96' r='90' fill='%23f1c40f' stroke='%23e67e22' stroke-width='4'/%3E%3Ctext x='96' y='130' text-anchor='middle' font-size='100' fill='%23e67e22'%3E€%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Ccircle cx='256' cy='256' r='240' fill='%23f1c40f' stroke='%23e67e22' stroke-width='8'/%3E%3Ctext x='256' y='340' text-anchor='middle' font-size='250' fill='%23e67e22'%3E€%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
