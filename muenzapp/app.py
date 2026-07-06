@@ -791,6 +791,9 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
     } else {
       td.contentEditable = 'true';
     }
+    td.addEventListener('focus', function() {
+      this._origVal = this.textContent.trim();
+    });
     td.addEventListener('blur', function() {
       const _key = (this.getAttribute('data-block') || '') + ':' + (this.getAttribute('data-country') || '');
       if (activeEditCountries.has(_key)) return;  // don't save while in edit mode
@@ -802,7 +805,7 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
       const ref = this.getAttribute('data-ref');
       let val = this.textContent.trim();
       if (!val) { this.innerHTML = '&nbsp;'; val = ''; }
-      if (ref) scheduleSave(ref, val);
+      if (ref && val !== (this._origVal || '')) scheduleSave(ref, val);
     });
     td.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') {
