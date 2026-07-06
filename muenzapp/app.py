@@ -317,11 +317,11 @@ def generate_html():
 body{{font-family:Arial,Calibri,sans-serif;font-size:8pt;padding:10px}}
 table{{border-collapse:collapse;white-space:nowrap;table-layout:fixed;width:{total_w:.1f}px}}
 td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middle;font-size:8pt;font-family:Arial;overflow:hidden;height:18px}}
-.c-country{{font-family:Calibri;font-size:10pt;font-weight:700;font-style:italic;text-align:left;padding:2px 6px;height:auto;overflow:visible}}
+.c-country{{font-family:Calibri;font-size:10pt;font-weight:700;font-style:italic;text-align:left;padding:2px 6px}}
 .gap td{{border:none!important}}
 .gap{{background:transparent;border:none!important}}
 .inner-gap{{background:transparent;border:none!important}}
-.add-year{{font-size:7pt;padding:6px 10px;cursor:pointer;margin-left:6px;border:1px solid #999;border-radius:3px;background:#eee;color:#333;user-select:none;vertical-align:middle}}
+.add-year{{font-size:7pt;padding:1px 12px;cursor:pointer;margin-left:6px;border:1px solid #999;border-radius:3px;background:#eee;color:#333;user-select:none;vertical-align:middle}}
 .add-year:hover{{background:#ddd}}
 
 .msg{{font-size:8pt;padding:4px 8px;margin:4px 0;border-radius:3px;display:none}}
@@ -333,7 +333,7 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
 .edit-btn{{font-size:8pt;padding:4px 12px;cursor:pointer;border:1px solid #999;border-radius:3px;background:#e8f0fe;color:#1a73e8;user-select:none;margin-bottom:6px;display:inline-block;margin-left:6px}}
 .edit-btn:hover{{background:#d2e3fc}}
 .edit-btn.active{{background:#1a73e8;color:#fff;border-color:#1a73e8}}
-.edit-country-btn{{font-size:7pt;padding:6px 10px;cursor:pointer;margin-left:3px;border:1px solid #999;border-radius:3px;background:#e8f0fe;color:#1a73e8;user-select:none;vertical-align:middle}}
+.edit-country-btn{{font-size:7pt;padding:1px 12px;cursor:pointer;margin-left:3px;border:1px solid #999;border-radius:3px;background:#e8f0fe;color:#1a73e8;user-select:none;vertical-align:middle}}
 .edit-country-btn:hover{{background:#d2e3fc}}
 .edit-country-btn.active{{background:#1a73e8;color:#fff;border-color:#1a73e8}}
 
@@ -344,7 +344,7 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
 .ctx-highlight{{outline:2px solid #1a73e8;outline-offset:-1px}}
 .export-btn{{font-size:8pt;padding:4px 12px;cursor:pointer;border:1px solid #999;border-radius:3px;background:#fff;color:#333;user-select:none;margin-left:6px;display:inline-block}}
 .export-btn:hover{{background:#f0f0f0}}
-.info-btn{{font-size:7pt;padding:6px 10px;cursor:pointer;margin-left:3px;border:1px solid #999;border-radius:3px;background:#e8f0fe;color:#1a73e8;user-select:none;vertical-align:middle}}
+.info-btn{{font-size:7pt;padding:1px 12px;cursor:pointer;margin-left:3px;border:1px solid #999;border-radius:3px;background:#e8f0fe;color:#1a73e8;user-select:none;vertical-align:middle}}
 .info-btn:hover{{background:#d2e3fc}}
 .info-btn.active{{background:#1a73e8;color:#fff;border-color:#1a73e8}}
 .info-modal{{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:2px solid #1a73e8;border-radius:6px;padding:16px;z-index:1000;font-size:9pt;min-width:280px;box-shadow:0 4px 20px rgba(0,0,0,0.3);display:none}}
