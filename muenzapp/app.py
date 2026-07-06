@@ -359,6 +359,9 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
 .info-modal a{{color:#1a73e8}}
 .info-modal .close-btn{{float:right;cursor:pointer;font-size:10pt;font-weight:700;color:#666;border:none;background:none;padding:0 4px}}
 .info-modal .close-btn:hover{{color:#000}}
+.coin-entry{{font-size:8pt;margin:3px 0;padding:4px 7px;background:#f5f7ff;border-radius:3px;border-left:3px solid #1a73e8}}
+.coin-entry-quality{{font-weight:bold;color:#1a1a1a}}
+.coin-entry-source{{color:#555}}
 .info-modal-overlay{{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:999;display:none}}</style>
 </head>
 <body>
@@ -383,6 +386,10 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
   </div>
   <div id="infoLinkWrap" style="display:none;margin-top:4px">
     <input type="text" id="infoLink" placeholder="https://...">
+  </div>
+  <div id="infoCoinDetails" style="display:none;margin-top:8px;border-top:1px solid #e0e0e0;padding-top:8px">
+    <div style="font-size:8pt;font-weight:bold;color:#555;margin-bottom:4px">Münzdetails</div>
+    <div id="infoCoinEntries"></div>
   </div>
   <div style="margin-top:8px;text-align:right">
     <button id="infoSave" style="font-size:8pt;padding:4px 12px;cursor:pointer;border:1px solid #1a73e8;border-radius:3px;background:#1a73e8;color:#fff">Speichern</button>
@@ -732,7 +739,34 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
   const infoOverlay = document.getElementById('infoOverlay');
   let infoRef = null;
 
-  function showInfoModal(ref, country, year, denom, mintage, link) {
+  const QUALITY_LABELS = {
+    '\u2714': 'Qualität noch nicht bestimmt',
+    '0': 'UNC',
+    '1': 'Gute / sehr gute Qualität',
+    '3': 'Schlechte Qualität',
+    '5': 'Sehr schlechte Qualität',
+  };
+  const SOURCE_LABELS = {
+    '\u00b0': 'Aus der Gruppe',
+    '*': 'Selbst gesammelt',
+    "'": 'Gekauft',
+    '': '',
+  };
+  function parseCoinEntries(val) {
+    if (!val || val === '\u2715' || val === '\u00d7') return [];
+    var entries = [];
+    var re = /(\u2714|\d)([\u00b0*']?)/g;
+    var m;
+    while ((m = re.exec(val)) !== null) {
+      var q = m[1], s = m[2];
+      if (q in QUALITY_LABELS) {
+        entries.push({ quality: QUALITY_LABELS[q], source: SOURCE_LABELS[s] || '' });
+      }
+    }
+    return entries;
+  }
+
+  function showInfoModal(ref, country, year, denom, mintage, link, cellVal) {
     infoRef = ref;
     document.getElementById('infoTitle').textContent = country + ' ' + year + ' ' + denom;
     document.getElementById('infoMintage').value = mintage || '';
@@ -741,6 +775,19 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
     linkBtn.style.display = link ? 'inline' : 'none';
     document.getElementById('infoLink').value = link || '';
     document.getElementById('infoLinkWrap').style.display = 'none';
+    // Coin details
+    var entries = parseCoinEntries(cellVal || '');
+    var detailsDiv = document.getElementById('infoCoinDetails');
+    var entriesDiv = document.getElementById('infoCoinEntries');
+    if (entries.length) {
+      entriesDiv.innerHTML = entries.map(function(e) {
+        var src = e.source ? ' &mdash; <span class="coin-entry-source">' + e.source + '</span>' : '';
+        return '<div class="coin-entry"><span class="coin-entry-quality">' + e.quality + '</span>' + src + '</div>';
+      }).join('');
+      detailsDiv.style.display = 'block';
+    } else {
+      detailsDiv.style.display = 'none';
+    }
     infoModal.style.display = 'block';
     infoOverlay.style.display = 'block';
   }
@@ -864,7 +911,8 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
         // Look up mintage + link from data attributes if present, or from initial server data
         var mintage = this.getAttribute('data-mintage') || '';
         var link = this.getAttribute('data-link') || '';
-        showInfoModal(ref, country, year, denom, mintage, link);
+        var cellVal = this.textContent.trim();
+        showInfoModal(ref, country, year, denom, mintage, link, cellVal);
       }
     });
   });
