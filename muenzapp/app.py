@@ -178,8 +178,9 @@ image_links = doc.get('image_links', {})
 
 # ─── Load mintage from Google Sheet ───
 MINTAGE_GIDS = {'Österreich': 536134290, 'Italien': 1836387929}
-MINTAGE_BLOCK = {'Österreich': 'A', 'Italien': 'AC'}
-COUNTRY_TO_EC = {'Österreich': 'Austria', 'Italien': 'Italy'}
+MINTAGE_SHEET_NAMES = {'Frankreich': 'France'}  # sheet name fallback when no GID available
+MINTAGE_BLOCK = {'Österreich': 'A', 'Italien': 'AC', 'Frankreich': 'A'}
+COUNTRY_TO_EC = {'Österreich': 'Austria', 'Italien': 'Italy', 'Frankreich': 'France'}
 EC_BASE = 'https://www.eurocollection.co.uk'
 # Google Sheet CSV columns (2-12) mapped to denomination labels (same for all blocks)
 GS_DENOMS = ['1c','2c','5c','10c','20c','50c','E1','E2','E2 CC 1','E2 CC 2','E2 CC 3']
@@ -208,27 +209,31 @@ def format_mintage_val(raw):
     return raw
 
 def load_mintage_sheet(country_name):
+    import urllib.request, csv, io
     gid = MINTAGE_GIDS.get(country_name)
-    if not gid: return {}, {}
+    sheet_name = MINTAGE_SHEET_NAMES.get(country_name)
+    if not gid and not sheet_name: return {}, {}
     bl = MINTAGE_BLOCK.get(country_name, 'A')
     ec_name = COUNTRY_TO_EC.get(country_name, country_name)
     gs_map = block_col_map(bl)
-    import urllib.request
     doc_id = '1lGbzcTmMfzQjE-7ENMhrSMpMlu859fYCAqH8juDhb40'
-    url = f'https://docs.google.com/spreadsheets/d/{doc_id}/export?format=csv&gid={gid}'
+    if gid:
+        url = f'https://docs.google.com/spreadsheets/d/{doc_id}/export?format=csv&gid={gid}'
+    else:
+        url = f'https://docs.google.com/spreadsheets/d/{doc_id}/gviz/tq?tqx=out:csv&sheet={urllib.request.quote(sheet_name)}'
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
     try:
         resp = urllib.request.urlopen(req, timeout=10)
-        lines = resp.read().decode('utf-8').split('\n')
+        raw_text = resp.read().decode('utf-8')
     except:
         return {}, {}
+    rows = list(csv.reader(io.StringIO(raw_text)))
     out_m = {}
     out_l = {}
-    for ri, line in enumerate(lines):
+    for ri, parts in enumerate(rows):
         if ri < 2: continue
-        parts = [p.strip() for p in line.split(',')]
         if len(parts) < 13: continue
-        year = parts[1]
+        year = parts[1].strip()
         if not year.isdigit(): continue
         bl_info = block_countries.get(bl, [])
         found_row = None
@@ -245,18 +250,18 @@ def load_mintage_sheet(country_name):
             yr_idx = int(year) - 2002
             found_row = 3 + yr_idx
         for gs_col, ex_col in gs_map.items():
-            raw = parts[gs_col] if gs_col < len(parts) else ''
+            raw = parts[gs_col].strip() if gs_col < len(parts) else ''
             if not raw: continue
             ref = ex_col + str(found_row)
             out_m[ref] = format_mintage_val(raw)
             den = GS_DENOMS[gs_col - 2]
-            if den and raw.strip().upper() != 'N/A':
+            if den and raw.upper() != 'N/A':
                 img_path = f'{EC_BASE}/Euros/{ec_name}/{ec_name} {year} {den}.JPG'
                 out_l[ref] = img_path
     return out_m, out_l
 
 # Load mintage + image links
-for _c in ['Österreich', 'Italien']:
+for _c in ['Österreich', 'Italien', 'Frankreich']:
     _m, _l = load_mintage_sheet(_c)
     mintage_data.update(_m)
     image_links.update(_l)
@@ -439,7 +444,7 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
                             if cl == YEAR_COL[bl]:
                                 btn_btn = f'<span class="add-year" data-block="{bl}" data-country="{htmlmod.escape(name)}">+</span>'
                                 btn_btn += f'<span class="edit-country-btn" data-block="{bl}" data-country="{htmlmod.escape(name)}">✏️</span>'
-                                if name in MINTAGE_GIDS:
+                                if name in MINTAGE_GIDS or name in MINTAGE_SHEET_NAMES:
                                     btn_btn += f'<span class="info-btn" data-country="{htmlmod.escape(name)}">ℹ️</span>'
                         else:
                             btn_btn = ''
