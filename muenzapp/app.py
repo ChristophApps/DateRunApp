@@ -6,7 +6,7 @@ from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 
 app = Flask(__name__)
 
-EXCEL_PATH = '/Users/admin/Dateien/MünzApp/Date Run Mai2026.xlsx'
+EXCEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Date Run Mai2026.xlsx')
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) or '.'
 DATA_PATH = os.path.join(BASE_DIR, 'data.json')
 MAX_ROW, MAX_COL = 216, 42
