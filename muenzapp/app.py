@@ -688,6 +688,15 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
   let infoMode = false;
   let infoCountry = null;
 
+  function setInfoModeCells(on) {
+    document.querySelectorAll('[data-ref]').forEach(function(td) {
+      if (td.getAttribute('data-xlocked')) { td.contentEditable = 'false'; return; }
+      const _key = (td.getAttribute('data-block') || '') + ':' + (td.getAttribute('data-country') || '');
+      if (activeEditCountries.has(_key)) return; // keep ctx-menu mode unchanged
+      td.contentEditable = on ? 'false' : 'true';
+    });
+  }
+
   document.querySelectorAll('.info-btn').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
@@ -697,6 +706,7 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
         infoMode = false;
         infoCountry = null;
         document.querySelectorAll('.info-btn').forEach(function(b){ b.classList.remove('active'); });
+        setInfoModeCells(false);
         return;
       }
       // Activate info mode for this country
@@ -704,6 +714,7 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
       infoCountry = country;
       document.querySelectorAll('.info-btn').forEach(function(b){ b.classList.remove('active'); });
       this.classList.add('active');
+      setInfoModeCells(true);
       showMsg('Info-Modus für ' + country + ' aktiv. Klicke auf eine Münze.');
     });
   });
