@@ -329,6 +329,9 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
 .edit-btn{{font-size:8pt;padding:4px 12px;cursor:pointer;border:1px solid #999;border-radius:3px;background:#e8f0fe;color:#1a73e8;user-select:none;margin-bottom:6px;display:inline-block;margin-left:6px}}
 .edit-btn:hover{{background:#d2e3fc}}
 .edit-btn.active{{background:#1a73e8;color:#fff;border-color:#1a73e8}}
+.edit-country-btn{{font-size:7pt;padding:1px 5px;cursor:pointer;margin-left:3px;border:1px solid #999;border-radius:3px;background:#e8f0fe;color:#1a73e8;user-select:none;vertical-align:middle}}
+.edit-country-btn:hover{{background:#d2e3fc}}
+.edit-country-btn.active{{background:#1a73e8;color:#fff;border-color:#1a73e8}}
 
 .ctx-menu{{position:fixed;background:#fff;border:1px solid #888;border-radius:4px;box-shadow:2px 2px 8px rgba(0,0,0,0.2);padding:4px;z-index:999;display:none;font-size:8pt}}
 .ctx-item{{padding:3px 8px;cursor:pointer;border-radius:2px;white-space:nowrap;display:inline-block;margin:1px}}
@@ -353,7 +356,6 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
 <div id="msg" class="msg"></div>
 <div style="margin-bottom:6px">
 <span class="undo-btn" id="undoBtn">↶ Letzte Aktion rückgängig</span>
-<span class="edit-btn" id="editBtn">✏️ Bearbeiten</span>
 <span class="export-btn" id="exportPdfBtn">📄 PDF</span>
 <span class="export-btn" id="exportXlsxBtn">📊 Excel</span>
 </div>
@@ -393,6 +395,14 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
         else:
             seg_last[s] = s + 1
 
+    # Precompute row -> country name per block
+    row_to_country = {}
+    for _bl in ['A', 'O', 'AC']:
+        for _i, (_cr, _cname) in enumerate(block_countries[_bl]):
+            _next = block_countries[_bl][_i+1][0] if _i+1 < len(block_countries[_bl]) else MAX_ROW + 1
+            for _r in range(_cr, _next):
+                row_to_country[(_r, _bl)] = _cname
+
     # Render base rows
     for r in range(1, MAX_ROW + 1):
         h += '<tr>'
@@ -428,6 +438,7 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
                         if name:
                             if cl == YEAR_COL[bl]:
                                 btn_btn = f'<span class="add-year" data-block="{bl}" data-country="{htmlmod.escape(name)}">+</span>'
+                                btn_btn += f'<span class="edit-country-btn" data-block="{bl}" data-country="{htmlmod.escape(name)}">✏️</span>'
                                 if name in MINTAGE_GIDS:
                                     btn_btn += f'<span class="info-btn" data-country="{htmlmod.escape(name)}">ℹ️</span>'
                         else:
@@ -487,7 +498,12 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
             colspan = f' colspan="{cs}"' if cs > 1 else ''
             rowspan = f' rowspan="{rs}"' if rs > 1 else ''
             cc = f' class="{cls}"' if cls else ''
-            dr = f' data-ref="{ref}"' if (editable or ct == 'x') else ''
+            if editable or ct == 'x':
+                _cname = htmlmod.escape(row_to_country.get((r, bl), '')) if bl else ''
+                _bl2 = bl or ''
+                dr = f' data-ref="{ref}" data-country="{_cname}" data-block="{_bl2}"'
+            else:
+                dr = ''
             dct = f' data-ct="{ct}"' if ct else ''
             xlocked = ' data-xlocked="1"' if ct == 'x' else ''
             ss = f' style="{sty}"' if sty else ''
@@ -554,9 +570,8 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
     setTimeout(function(){ msgDiv.style.display = 'none'; }, 3000);
   }
 
-  // ───── Edit mode toggle ─────
-  let editMode = false;
-  const editBtn = document.getElementById('editBtn');
+  // ───── Per-country edit mode ─────
+  let activeEditCountries = new Set();
   const ctxMenu = document.getElementById('ctxMenu');
 
   // Context menu items
@@ -645,12 +660,10 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
     if (!e.target.closest('.ctx-menu')) hideCtx();
   });
 
-  function setEditMode(on) {
-    editMode = on;
-    editBtn.textContent = on ? '✏️ Bearbeiten (aktiv)' : '✏️ Bearbeiten';
-    editBtn.classList.toggle('active', on);
-    // Toggle contenteditable on all data cells (except x-locked)
-    document.querySelectorAll('[data-ref]').forEach(function(td){
+  function setEditModeForCountry(block, country, on) {
+    const key = block + ':' + country;
+    if (on) activeEditCountries.add(key); else activeEditCountries.delete(key);
+    document.querySelectorAll('[data-ref][data-block="' + block + '"][data-country="' + CSS.escape(country) + '"]').forEach(function(td){
       if (td.getAttribute('data-xlocked')) {
         td.contentEditable = 'false';
       } else {
@@ -659,8 +672,16 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
     });
   }
 
-  editBtn.addEventListener('click', function() {
-    setEditMode(!editMode);
+  document.querySelectorAll('.edit-country-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const block = this.getAttribute('data-block');
+      const country = this.getAttribute('data-country');
+      const key = block + ':' + country;
+      const on = !activeEditCountries.has(key);
+      setEditModeForCountry(block, country, on);
+      this.classList.toggle('active', on);
+    });
   });
 
   // ───── Info mode (per country) ─────
@@ -771,7 +792,8 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
       td.contentEditable = 'true';
     }
     td.addEventListener('blur', function() {
-      if (editMode) return;  // don't save while in edit mode
+      const _key = (this.getAttribute('data-block') || '') + ':' + (this.getAttribute('data-country') || '');
+      if (activeEditCountries.has(_key)) return;  // don't save while in edit mode
       // If cell was x-locked, revert value
       if (this.getAttribute('data-xlocked')) {
         this.textContent = '✕';
@@ -796,7 +818,8 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
     // In edit mode, click opens context menu. In info mode, opens info modal.
     td.addEventListener('click', function(e) {
       if (!this.getAttribute('data-ref')) return;
-      if (editMode) {
+      const _cellKey = (this.getAttribute('data-block') || '') + ':' + (this.getAttribute('data-country') || '');
+      if (activeEditCountries.has(_cellKey)) {
         e.preventDefault();
         e.stopPropagation();
         showCtx(this, e.clientX, e.clientY);
