@@ -43,7 +43,8 @@
     "B27": "nodata",
     "C27": "nodata",
     "G27": "nodata",
-    "D27": "nodata"
+    "D27": "nodata",
+    "B17": "nifc"
   },
   "undo_stack": [
     {
@@ -93,6 +94,18 @@
       "ref": "G27",
       "prev": "x",
       "new": "nodata"
+    },
+    {
+      "type": "cell-type",
+      "ref": "B17",
+      "prev": "",
+      "new": "green"
+    },
+    {
+      "type": "cell-type",
+      "ref": "B17",
+      "prev": "green",
+      "new": "nifc"
     }
   ],
   "mintage": {
