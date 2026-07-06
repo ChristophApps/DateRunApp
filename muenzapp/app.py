@@ -317,7 +317,12 @@ def generate_html():
 body{{font-family:Arial,Calibri,sans-serif;font-size:8pt;padding:10px}}
 table{{border-collapse:collapse;white-space:nowrap;table-layout:fixed;width:{total_w:.1f}px}}
 td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middle;font-size:8pt;font-family:Arial;overflow:hidden;height:18px}}
-.c-country{{font-family:Calibri;font-size:10pt;font-weight:700;font-style:italic;text-align:left;padding:2px 6px}}
+.c-country{{font-family:Calibri;font-size:10pt;font-weight:700;font-style:italic;padding:0;overflow:visible;height:auto}}
+.c-country-inner{{display:flex;align-items:center;width:100%;padding:2px 6px;box-sizing:border-box}}
+.c-name{{flex:1;text-align:center}}
+.c-left-btns{{display:flex;gap:3px;flex-shrink:0}}
+.c-country .info-btn{{flex-shrink:0;margin-left:0}}
+.c-right-placeholder{{display:inline-block;flex-shrink:0}}
 .gap td{{border:none!important}}
 .gap{{background:transparent;border:none!important}}
 .inner-gap{{background:transparent;border:none!important}}
@@ -441,10 +446,9 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
                         name = COUNTRY_HEADERS[(r, bl)]
                         if name:
                             if cl == YEAR_COL[bl]:
-                                btn_btn = f'<span class="add-year" data-block="{bl}" data-country="{htmlmod.escape(name)}">+</span>'
-                                btn_btn += f'<span class="edit-country-btn" data-block="{bl}" data-country="{htmlmod.escape(name)}">✏️</span>'
-                                if name in MINTAGE_GIDS or name in MINTAGE_SHEET_NAMES:
-                                    btn_btn += f'<span class="info-btn" data-country="{htmlmod.escape(name)}">ℹ️</span>'
+                                _left = f'<span class="c-left-btns"><span class="add-year" data-block="{bl}" data-country="{htmlmod.escape(name)}">+</span><span class="edit-country-btn" data-block="{bl}" data-country="{htmlmod.escape(name)}">✏️</span></span>'
+                                _right = f'<span class="info-btn" data-country="{htmlmod.escape(name)}">ℹ️</span>' if (name in MINTAGE_GIDS or name in MINTAGE_SHEET_NAMES) else '<span class="c-right-placeholder"></span>'
+                                btn_btn = f'<div class="c-country-inner">{_left}<span class="c-name">{htmlmod.escape(name)}</span>{_right}</div>'
                         else:
                             btn_btn = ''
                     else:
@@ -498,7 +502,7 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
 
             ev = htmlmod.escape(val) if val else ('&nbsp;' if cls in ('gap', 'inner-gap') else '')
             if btn_btn:
-                ev += btn_btn
+                ev = btn_btn
             colspan = f' colspan="{cs}"' if cs > 1 else ''
             rowspan = f' rowspan="{rs}"' if rs > 1 else ''
             cc = f' class="{cls}"' if cls else ''
