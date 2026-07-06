@@ -231,7 +231,6 @@ def load_mintage_sheet(country_name):
     out_m = {}
     out_l = {}
     for ri, parts in enumerate(rows):
-        if ri < 2: continue
         if len(parts) < 13: continue
         year = parts[1].strip()
         if not year.isdigit(): continue
