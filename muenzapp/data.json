@@ -38,7 +38,7 @@
     "I7": "✔",
     "H14": "",
     "L47": "30*",
-    "E4": "123"
+    "E4": "1*3o5o"
   },
   "extensions": {},
   "cell_types": {
@@ -133,6 +133,16 @@
       "type": "cell",
       "ref": "E4",
       "prev": ""
+    },
+    {
+      "type": "cell",
+      "ref": "E4",
+      "prev": "123"
+    },
+    {
+      "type": "cell",
+      "ref": "E4",
+      "prev": "135"
     }
   ],
   "mintage": {

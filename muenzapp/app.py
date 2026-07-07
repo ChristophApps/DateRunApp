@@ -175,6 +175,7 @@ cell_types = doc.get('cell_types', {})
 undo_stack = doc.get('undo_stack', [])
 mintage_data = doc.get('mintage', {})
 image_links = doc.get('image_links', {})
+cc_coin_names = {}  # populated from Google Sheet at startup, not persisted
 
 # ─── Load mintage from Google Sheet ───
 MINTAGE_GIDS = {'Österreich': 536134290, 'Italien': 1836387929}
@@ -230,6 +231,9 @@ def load_mintage_sheet(country_name):
     rows = list(csv.reader(io.StringIO(raw_text)))
     out_m = {}
     out_l = {}
+    out_cn = {}  # CC coin names: ref -> name
+    # Map gs_col (10/11/12) to the name column index in the CSV (14/15/16)
+    CC_NAME_IDX = {10: 14, 11: 15, 12: 16}
     for ri, parts in enumerate(rows):
         if len(parts) < 13: continue
         year = parts[1].strip()
@@ -257,13 +261,21 @@ def load_mintage_sheet(country_name):
             if den and raw.upper() != 'N/A':
                 img_path = f'{EC_BASE}/Euros/{ec_name}/{ec_name} {year} {den}.JPG'
                 out_l[ref] = img_path
-    return out_m, out_l
+            # CC coin name (only for CC columns gs_col 10/11/12)
+            if gs_col in CC_NAME_IDX:
+                ni = CC_NAME_IDX[gs_col]
+                if ni < len(parts):
+                    cname = parts[ni].strip()
+                    if cname and cname.upper() != 'N/A':
+                        out_cn[ref] = cname
+    return out_m, out_l, out_cn
 
-# Load mintage + image links
+# Load mintage + image links + CC coin names
 for _c in ['Österreich', 'Italien', 'Frankreich']:
-    _m, _l = load_mintage_sheet(_c)
+    _m, _l, _cn = load_mintage_sheet(_c)
     mintage_data.update(_m)
     image_links.update(_l)
+    cc_coin_names.update(_cn)
 
 def merge_data():
     d = dict(base_data)
@@ -386,6 +398,9 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
   </div>
   <div id="infoLinkWrap" style="display:none;margin-top:4px">
     <input type="text" id="infoLink" placeholder="https://...">
+  </div>
+  <div id="infoCCName" style="display:none;margin-top:6px;font-size:8pt;background:#fff8e1;border-left:3px solid #f9a825;border-radius:3px;padding:4px 7px">
+    <span style="color:#888">Münzname:</span> <strong id="infoCCNameText"></strong>
   </div>
   <div id="infoCoinDetails" style="display:none;margin-top:8px;border-top:1px solid #e0e0e0;padding-top:8px">
     <div style="font-size:8pt;font-weight:bold;color:#555;margin-bottom:4px">Münzdetails</div>
@@ -528,7 +543,8 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
                 dm = f' data-mintage="{htmlmod.escape(format_mintage_val(mintage_data[ref]))}"'
             if ref in image_links:
                 dl = f' data-link="{htmlmod.escape(image_links[ref])}"'
-            h += f'<td{cc}{colspan}{rowspan}{ss}{dr}{dct}{xlocked}{dm}{dl}>{ev}</td>'
+            dcn = f' data-cc-name="{htmlmod.escape(cc_coin_names[ref])}"' if ref in cc_coin_names else ''
+            h += f'<td{cc}{colspan}{rowspan}{ss}{dr}{dct}{xlocked}{dm}{dl}{dcn}>{ev}</td>'
         h += '</tr>\n'
 
         # Check if this row is the global last real data row of any segment
@@ -766,7 +782,7 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
     return entries;
   }
 
-  function showInfoModal(ref, country, year, denom, mintage, link, cellVal) {
+  function showInfoModal(ref, country, year, denom, mintage, link, cellVal, ccName) {
     infoRef = ref;
     document.getElementById('infoTitle').textContent = country + ' ' + year + ' ' + denom;
     document.getElementById('infoMintage').value = mintage || '';
@@ -775,6 +791,13 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
     linkBtn.style.display = link ? 'inline' : 'none';
     document.getElementById('infoLink').value = link || '';
     document.getElementById('infoLinkWrap').style.display = 'none';
+    var ccNameDiv = document.getElementById('infoCCName');
+    if (ccName) {
+      document.getElementById('infoCCNameText').textContent = ccName;
+      ccNameDiv.style.display = 'block';
+    } else {
+      ccNameDiv.style.display = 'none';
+    }
     // Coin details
     var entries = parseCoinEntries(cellVal || '');
     var detailsDiv = document.getElementById('infoCoinDetails');
@@ -912,7 +935,8 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
         var mintage = this.getAttribute('data-mintage') || '';
         var link = this.getAttribute('data-link') || '';
         var cellVal = this.textContent.trim();
-        showInfoModal(ref, country, year, denom, mintage, link, cellVal);
+        var ccName = this.getAttribute('data-cc-name') || '';
+        showInfoModal(ref, country, year, denom, mintage, link, cellVal, ccName);
       }
     });
   });
