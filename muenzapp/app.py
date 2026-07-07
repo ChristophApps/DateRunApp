@@ -213,7 +213,7 @@ def load_mintage_sheet(country_name):
     import urllib.request, csv, io
     gid = MINTAGE_GIDS.get(country_name)
     sheet_name = MINTAGE_SHEET_NAMES.get(country_name)
-    if not gid and not sheet_name: return {}, {}
+    if not gid and not sheet_name: return {}, {}, {}
     bl = MINTAGE_BLOCK.get(country_name, 'A')
     ec_name = COUNTRY_TO_EC.get(country_name, country_name)
     gs_map = block_col_map(bl)
@@ -227,7 +227,7 @@ def load_mintage_sheet(country_name):
         resp = urllib.request.urlopen(req, timeout=10)
         raw_text = resp.read().decode('utf-8')
     except:
-        return {}, {}
+        return {}, {}, {}
     rows = list(csv.reader(io.StringIO(raw_text)))
     out_m = {}
     out_l = {}
