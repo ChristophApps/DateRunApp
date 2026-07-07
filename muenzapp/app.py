@@ -748,19 +748,19 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
   };
   const SOURCE_LABELS = {
     '\u00b0': 'Aus der Gruppe',
-    '*': 'Selbst gesammelt',
-    "'": 'Gekauft',
-    '': '',
+    'o': 'Aus der Gruppe',
+    '*': 'Gekauft',
+    '': 'Selbst gesammelt',
   };
   function parseCoinEntries(val) {
     if (!val || val === '\u2715' || val === '\u00d7') return [];
     var entries = [];
-    var re = /(\u2714|\d)([\u00b0*']?)/g;
+    var re = /(\u2714|\d)([\u00b0o*]?)/g;
     var m;
     while ((m = re.exec(val)) !== null) {
       var q = m[1], s = m[2];
       if (q in QUALITY_LABELS) {
-        entries.push({ quality: QUALITY_LABELS[q], source: SOURCE_LABELS[s] || '' });
+        entries.push({ quality: QUALITY_LABELS[q], source: SOURCE_LABELS[s] !== undefined ? SOURCE_LABELS[s] : 'Selbst gesammelt' });
       }
     }
     return entries;
