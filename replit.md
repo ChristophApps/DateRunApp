@@ -23,7 +23,6 @@ The app loads the Excel file on startup (takes a few seconds), then serves on `h
 muenzapp/
   app.py        # Flask app — reads Excel, generates HTML, handles API routes
   data.json     # User overrides, cell types, mintage data, undo stack
-  old_archive/  # Previous HTML-only version (not used)
 Date Run Mai2026.xlsx  # Main coin data spreadsheet
 ```
 
