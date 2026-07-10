@@ -55,7 +55,12 @@ def is_dark(hex_color):
     return r * 0.299 + g * 0.587 + b * 0.114 < 140
 
 print("Loading Excel...")
-wb = load_workbook(EXCEL_PATH, data_only=True)
+try:
+    wb = load_workbook(EXCEL_PATH, data_only=True)
+except FileNotFoundError:
+    raise SystemExit(f"ERROR: Excel file not found at {EXCEL_PATH!r}. Place 'Date Run Mai2026.xlsx' in the project root.")
+except Exception as e:
+    raise SystemExit(f"ERROR: Could not load Excel file: {e}")
 ws = wb.active
 
 base_data = {}
@@ -154,15 +159,22 @@ YEAR_COL = {'A': 'A', 'O': 'O', 'AC': 'AC'}
 # ─── data.json: overrides + extensions ───
 def load_doc():
     if os.path.exists(DATA_PATH):
-        with open(DATA_PATH, 'r', encoding='utf-8') as f:
-            d = json.load(f)
+        try:
+            with open(DATA_PATH, 'r', encoding='utf-8') as f:
+                d = json.load(f)
             if isinstance(d, dict) and 'overrides' in d:
                 return d
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"Warning: could not load {DATA_PATH} ({e}), starting with empty data")
     return {'overrides': {}, 'extensions': {}, 'cell_types': {}, 'undo_stack': [], 'mintage': {}, 'image_links': {}}
 
 def save_doc(d):
-    with open(DATA_PATH, 'w', encoding='utf-8') as f:
+    tmp = DATA_PATH + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
         json.dump(d, f, ensure_ascii=False, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, DATA_PATH)
 
 doc = load_doc()
 if 'mintage' not in doc: doc['mintage'] = {}
@@ -1560,4 +1572,6 @@ def export_xlsx():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8081, debug=True)
+    port = int(os.environ.get('PORT', 8081))
+    debug = os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true')
+    app.run(host='0.0.0.0', port=port, debug=debug)
