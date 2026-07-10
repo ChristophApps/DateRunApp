@@ -374,7 +374,36 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
 .coin-entry{{font-size:8pt;margin:3px 0;padding:4px 7px;background:#f5f7ff;border-radius:3px;border-left:3px solid #1a73e8}}
 .coin-entry-quality{{font-weight:bold;color:#1a1a1a}}
 .coin-entry-source{{color:#555}}
-.info-modal-overlay{{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:999;display:none}}</style>
+.info-modal-overlay{{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:999;display:none}}
+.c-stats{{font-size:7pt;font-weight:400;font-style:normal;color:#333;opacity:0.85;margin-left:6px}}
+.legend-btn{{font-size:8pt;padding:4px 12px;cursor:pointer;border:1px solid #999;border-radius:3px;background:#fff;color:#333;user-select:none;margin-left:6px;display:inline-block}}
+.legend-btn:hover{{background:#f0f0f0}}
+.legend-btn.active{{background:#1a73e8;color:#fff;border-color:#1a73e8}}
+.missing-btn{{font-size:8pt;padding:4px 12px;cursor:pointer;border:1px solid #999;border-radius:3px;background:#fff;color:#333;user-select:none;margin-left:6px;display:inline-block}}
+.missing-btn:hover{{background:#f0f0f0}}
+.missing-btn.active{{background:#e53935;color:#fff;border-color:#e53935}}
+.legend-panel{{font-size:8pt;background:#f9f9f9;border:1px solid #ccc;border-radius:4px;padding:10px 14px;margin-bottom:8px;display:flex;gap:28px;flex-wrap:wrap}}
+.legend-col h4{{font-size:8.5pt;margin-bottom:4px;color:#1a73e8}}
+.legend-row{{margin:2px 0;display:flex;align-items:center;gap:6px;white-space:normal;max-width:230px}}
+.legend-code{{display:inline-block;min-width:16px;text-align:center;font-weight:bold;background:#fff;border:1px solid #999;border-radius:3px;padding:0 4px;flex-shrink:0}}
+.legend-swatch{{display:inline-block;width:12px;height:12px;border:1px solid #999;flex-shrink:0}}
+body.missing-mode td.cell-has{{opacity:0.2}}
+body.missing-mode td.cell-missing{{background:#ffe0e0!important;outline:2px solid #e53935;outline-offset:-2px}}
+.value-picker{{position:fixed;background:#fff;border:1px solid #888;border-radius:4px;box-shadow:2px 2px 10px rgba(0,0,0,0.25);padding:10px;z-index:1001;display:none;font-size:8pt;width:230px}}
+.vp-title{{font-weight:bold;margin-bottom:6px;color:#1a73e8}}
+.vp-entries{{max-height:120px;overflow-y:auto;margin-bottom:6px}}
+.vp-entry{{background:#f5f7ff;border-left:3px solid #1a73e8;border-radius:3px;padding:3px 6px;margin:2px 0;position:relative;padding-right:20px}}
+.vp-entry-source{{color:#555}}
+.vp-entry-del{{position:absolute;right:4px;top:2px;cursor:pointer;color:#c00;font-weight:bold}}
+.vp-empty{{color:#999;font-style:italic;padding:4px 0}}
+.vp-quality-row,.vp-source-row{{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}}
+.vp-btn{{border:1px solid #999;border-radius:3px;padding:2px 6px;cursor:pointer;background:#f0f0f0}}
+.vp-btn:hover{{background:#e0e0e0}}
+.vp-btn.vp-q{{background:#e8f0fe}}
+.vp-btn.vp-s{{background:#fff3cd}}
+.vp-clear{{cursor:pointer;color:#c00;text-decoration:underline;margin-right:12px;font-size:8pt}}
+.vp-close{{cursor:pointer;color:#1a73e8;font-weight:bold;font-size:8pt}}
+</style>
 </head>
 <body>
 <div id="msg" class="msg"></div>
@@ -382,12 +411,66 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
 <span class="undo-btn" id="undoBtn">↶ Letzte Aktion rückgängig</span>
 <span class="export-btn" id="exportPdfBtn">📄 PDF</span>
 <span class="export-btn" id="exportXlsxBtn">📊 Excel</span>
+<span class="legend-btn" id="legendBtn">❔ Legende</span>
+<span class="missing-btn" id="missingBtn">🔍 Fehlende anzeigen</span>
+</div>
+<div id="legendPanel" class="legend-panel" style="display:none">
+  <div class="legend-col">
+    <h4>Qualität</h4>
+    <div class="legend-row"><span class="legend-code">✔</span> Qualität noch nicht bestimmt</div>
+    <div class="legend-row"><span class="legend-code">0</span> UNC</div>
+    <div class="legend-row"><span class="legend-code">1</span> Gute / sehr gute Qualität</div>
+    <div class="legend-row"><span class="legend-code">3</span> Schlechte Qualität</div>
+    <div class="legend-row"><span class="legend-code">5</span> Sehr schlechte Qualität</div>
+  </div>
+  <div class="legend-col">
+    <h4>Herkunft (Suffix)</h4>
+    <div class="legend-row"><span class="legend-code">&ndash;</span> Selbst gesammelt</div>
+    <div class="legend-row"><span class="legend-code">° / o</span> Aus der Gruppe</div>
+    <div class="legend-row"><span class="legend-code">*</span> Gekauft</div>
+    <div class="legend-row" style="color:#888">Mehrere Codes in einer Zelle = mehrere Münzen (z.B. "50*")</div>
+  </div>
+  <div class="legend-col">
+    <h4>Zellfarben (Auflagegröße)</h4>
+    <div class="legend-row"><span class="legend-swatch" style="background:#C5DEB5"></span> &gt; 5 Mio.</div>
+    <div class="legend-row"><span class="legend-swatch" style="background:#8EAADB"></span> 2&ndash;5 Mio.</div>
+    <div class="legend-row"><span class="legend-swatch" style="background:#FF8C42"></span> 1&ndash;2 Mio.</div>
+    <div class="legend-row"><span class="legend-swatch" style="background:#FFE598"></span> &le; 1 Mio.</div>
+    <div class="legend-row"><span class="legend-swatch" style="background:#FFC7CE"></span> NIFC / nie geprüft / ✕ nie ausgegeben</div>
+  </div>
+  <div class="legend-col">
+    <h4>Bedienung</h4>
+    <div class="legend-row">Rechtsklick auf eine Münzzelle &rarr; Schnellauswahl für Qualität &amp; Herkunft</div>
+    <div class="legend-row">✏️ am Land &rarr; Zelltyp/Farbe setzen</div>
+    <div class="legend-row">ℹ️ am Land &rarr; Münzdetails &amp; Bild ansehen</div>
+  </div>
 </div>
 <div class="ctx-menu" id="ctxMenu"></div>
+<div class="value-picker" id="valuePicker">
+  <div class="vp-title">Münzen für dieses Feld</div>
+  <div id="vpEntries" class="vp-entries"></div>
+  <div class="vp-quality-row">
+    <span class="vp-btn vp-q" data-q="✔">✔</span>
+    <span class="vp-btn vp-q" data-q="0">0 UNC</span>
+    <span class="vp-btn vp-q" data-q="1">1 gut</span>
+    <span class="vp-btn vp-q" data-q="3">3 schl.</span>
+    <span class="vp-btn vp-q" data-q="5">5 sehr schl.</span>
+  </div>
+  <div class="vp-source-row" id="vpSourceRow" style="display:none">
+    <span class="vp-btn vp-s" data-s="">Selbst</span>
+    <span class="vp-btn vp-s" data-s="°">Gruppe</span>
+    <span class="vp-btn vp-s" data-s="*">Gekauft</span>
+  </div>
+  <div style="margin-top:6px;text-align:right">
+    <span class="vp-clear" id="vpClear">Leeren</span>
+    <span class="vp-close" id="vpCloseBtn">Fertig</span>
+  </div>
+</div>
 <div class="info-modal-overlay" id="infoOverlay"></div>
 <div class="info-modal" id="infoModal">
   <button class="close-btn" id="infoClose">&times;</button>
   <h3 id="infoTitle">Münze</h3>
+  <img id="infoCoinImg" style="display:none;max-width:100%;border:1px solid #ddd;border-radius:4px;margin:6px 0">
   <label>Auflagezahl:</label>
   <input type="text" id="infoMintage" placeholder="z.B. 378.400.000">
   <div style="margin-top:6px">
@@ -434,6 +517,30 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
             for _r in range(_cr, _next):
                 row_to_country[(_r, _bl)] = _cname
 
+    # Precompute per-country completion stats (den/cc cells, excluding "never issued" x-type)
+    country_stats = {}
+    for _bl in ['A', 'O', 'AC']:
+        for _cl in cols_letters:
+            if col_to_block.get(_cl) != _bl or col_types.get(_cl) not in ('den', 'cc'):
+                continue
+            for _r in range(1, MAX_ROW + 1):
+                if block_row_type.get(_bl, {}).get(_r) != 'data':
+                    continue
+                _yref = YEAR_COL[_bl] + str(_r)
+                if _yref not in data:
+                    continue
+                _ref = _cl + str(_r)
+                if cell_types.get(_ref) == 'x':
+                    continue
+                _cname = row_to_country.get((_r, _bl))
+                if not _cname:
+                    continue
+                _key = (_bl, _cname)
+                _cst = country_stats.setdefault(_key, {'filled': 0, 'total': 0})
+                _cst['total'] += 1
+                if data.get(_ref, '').strip():
+                    _cst['filled'] += 1
+
     # Render base rows
     for r in range(1, MAX_ROW + 1):
         h += '<tr>'
@@ -470,7 +577,13 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
                             if cl == YEAR_COL[bl]:
                                 _left = f'<span class="c-left-btns"><span class="add-year" data-block="{bl}" data-country="{htmlmod.escape(name)}">+</span><span class="edit-country-btn" data-block="{bl}" data-country="{htmlmod.escape(name)}">✏️</span></span>'
                                 _right = f'<span class="info-btn" data-country="{htmlmod.escape(name)}">ℹ️</span>' if (name in MINTAGE_GIDS or name in MINTAGE_SHEET_NAMES) else '<span class="c-right-placeholder"></span>'
-                                btn_btn = f'<div class="c-country-inner">{_left}<span class="c-name">{htmlmod.escape(name)}</span>{_right}</div>'
+                                _cst = country_stats.get((bl, name))
+                                if _cst and _cst['total']:
+                                    _pct = round(100 * _cst['filled'] / _cst['total'])
+                                    _stats_html = f'<span class="c-stats">{_cst["filled"]}/{_cst["total"]} &middot; {_pct}%</span>'
+                                else:
+                                    _stats_html = ''
+                                btn_btn = f'<div class="c-country-inner">{_left}<span class="c-name">{htmlmod.escape(name)}{_stats_html}</span>{_right}</div>'
                         else:
                             btn_btn = ''
                     else:
@@ -669,6 +782,7 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
             });
           }
         }
+        if (ctxTarget) updateMissingCell(ctxTarget);
         hideCtx();
       });
     });
@@ -689,6 +803,33 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
   }
   document.addEventListener('click', function(e) {
     if (!e.target.closest('.ctx-menu')) hideCtx();
+  });
+
+  // ───── Legend panel toggle ─────
+  document.getElementById('legendBtn').addEventListener('click', function() {
+    var panel = document.getElementById('legendPanel');
+    var show = panel.style.display === 'none';
+    panel.style.display = show ? 'flex' : 'none';
+    this.classList.toggle('active', show);
+  });
+
+  // ───── Missing-coin highlight mode ─────
+  let missingMode = false;
+  function updateMissingCell(td) {
+    if (!missingMode) { td.classList.remove('cell-missing', 'cell-has'); return; }
+    if (td.getAttribute('data-xlocked')) { td.classList.remove('cell-missing'); td.classList.add('cell-has'); return; }
+    var val = (td.textContent || '').replace(/\u00a0/g, '').trim();
+    if (!val) { td.classList.add('cell-missing'); td.classList.remove('cell-has'); }
+    else { td.classList.remove('cell-missing'); td.classList.add('cell-has'); }
+  }
+  function refreshMissingHighlight() {
+    document.querySelectorAll('[data-ref]').forEach(updateMissingCell);
+  }
+  document.getElementById('missingBtn').addEventListener('click', function() {
+    missingMode = !missingMode;
+    this.classList.toggle('active', missingMode);
+    document.body.classList.toggle('missing-mode', missingMode);
+    refreshMissingHighlight();
   });
 
   function setEditModeForCountry(block, country, on) {
@@ -782,9 +923,109 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
     return entries;
   }
 
+  // ───── Quick value-picker (right-click on a coin cell) ─────
+  const valuePicker = document.getElementById('valuePicker');
+  const vpEntriesDiv = document.getElementById('vpEntries');
+  const vpSourceRow = document.getElementById('vpSourceRow');
+  let vpTarget = null;
+  let vpPendingQ = null;
+
+  function vpParseRaw(val) {
+    if (!val || val === '\u2715' || val === '\u00d7') return [];
+    var entries = [];
+    var re = /(\u2714|\d)([\u00b0o*]?)/g;
+    var m;
+    while ((m = re.exec(val)) !== null) entries.push({ q: m[1], s: m[2] });
+    return entries;
+  }
+  function vpSerialize(entries) {
+    return entries.map(function(e) { return e.q + (e.s || ''); }).join('');
+  }
+  function vpRenderEntries(entries) {
+    vpEntriesDiv.innerHTML = entries.map(function(e, i) {
+      var ql = QUALITY_LABELS[e.q] || e.q;
+      var sl = SOURCE_LABELS[e.s] !== undefined ? SOURCE_LABELS[e.s] : 'Selbst gesammelt';
+      return '<div class="vp-entry">' + ql + ' &mdash; <span class="vp-entry-source">' + sl + '</span>' +
+        '<span class="vp-entry-del" data-idx="' + i + '">&times;</span></div>';
+    }).join('') || '<div class="vp-empty">Keine Münzen erfasst</div>';
+    vpEntriesDiv.querySelectorAll('.vp-entry-del').forEach(function(el) {
+      el.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var idx = parseInt(this.getAttribute('data-idx'), 10);
+        var entries = vpParseRaw(vpTarget.getAttribute('data-vp-val') || '');
+        entries.splice(idx, 1);
+        vpApply(entries);
+      });
+    });
+  }
+  function vpApply(entries) {
+    var newVal = vpSerialize(entries);
+    vpTarget.setAttribute('data-vp-val', newVal);
+    vpTarget.textContent = newVal;
+    var ref = vpTarget.getAttribute('data-ref');
+    if (ref) scheduleSave(ref, newVal);
+    updateMissingCell(vpTarget);
+    vpRenderEntries(entries);
+  }
+  function showValuePicker(td, x, y) {
+    vpTarget = td;
+    vpPendingQ = null;
+    vpSourceRow.style.display = 'none';
+    var cur = td.textContent.trim();
+    td.setAttribute('data-vp-val', cur === '\u2715' ? '' : cur);
+    vpRenderEntries(vpParseRaw(td.getAttribute('data-vp-val')));
+    valuePicker.style.left = Math.min(x, window.innerWidth - 250) + 'px';
+    valuePicker.style.top = Math.min(y, window.innerHeight - 240) + 'px';
+    valuePicker.style.display = 'block';
+    td.classList.add('ctx-highlight');
+  }
+  function hideValuePicker() {
+    valuePicker.style.display = 'none';
+    if (vpTarget) vpTarget.classList.remove('ctx-highlight');
+    vpTarget = null;
+  }
+  valuePicker.querySelectorAll('.vp-q').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      vpPendingQ = this.getAttribute('data-q');
+      vpSourceRow.style.display = 'flex';
+    });
+  });
+  valuePicker.querySelectorAll('.vp-s').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (!vpPendingQ) return;
+      var entries = vpParseRaw(vpTarget.getAttribute('data-vp-val') || '');
+      entries.push({ q: vpPendingQ, s: this.getAttribute('data-s') });
+      vpPendingQ = null;
+      vpSourceRow.style.display = 'none';
+      vpApply(entries);
+    });
+  });
+  document.getElementById('vpClear').addEventListener('click', function(e) {
+    e.stopPropagation();
+    vpApply([]);
+  });
+  document.getElementById('vpCloseBtn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    hideValuePicker();
+  });
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.value-picker')) hideValuePicker();
+  });
+
   function showInfoModal(ref, country, year, denom, mintage, link, cellVal, ccName) {
     infoRef = ref;
     document.getElementById('infoTitle').textContent = country + ' ' + year + ' ' + denom;
+    var imgEl = document.getElementById('infoCoinImg');
+    if (link) {
+      imgEl.onerror = function() { this.style.display = 'none'; };
+      imgEl.src = link;
+      imgEl.style.display = 'block';
+    } else {
+      imgEl.removeAttribute('src');
+      imgEl.style.display = 'none';
+    }
     document.getElementById('infoMintage').value = mintage || '';
     var linkBtn = document.getElementById('infoLinkBtn');
     linkBtn.href = link || '#';
@@ -895,6 +1136,7 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
       let val = this.textContent.trim();
       if (!val) { this.innerHTML = '&nbsp;'; val = ''; }
       if (ref && val !== (this._origVal || '')) scheduleSave(ref, val);
+      updateMissingCell(this);
     });
     td.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') {
@@ -906,6 +1148,14 @@ td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middl
       e.preventDefault();
       const text = (e.clipboardData || window.clipboardData).getData('text/plain');
       document.execCommand('insertText', false, text);
+    });
+    // Right-click: quick quality/source picker for this coin cell
+    td.addEventListener('contextmenu', function(e) {
+      if (this.getAttribute('data-xlocked')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      hideCtx();
+      showValuePicker(this, e.clientX, e.clientY);
     });
     // In edit mode, click opens context menu. In info mode, opens info modal.
     td.addEventListener('click', function(e) {
