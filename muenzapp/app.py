@@ -482,7 +482,7 @@ body.missing-mode td.cell-missing{{background:#ffe0e0!important;outline:2px soli
 <div class="info-modal" id="infoModal">
   <button class="close-btn" id="infoClose">&times;</button>
   <h3 id="infoTitle">Münze</h3>
-  <img id="infoCoinImg" style="display:none;max-width:100%;border:1px solid #ddd;border-radius:4px;margin:6px 0">
+  <img id="infoCoinImg" style="display:none;max-width:50%;border:1px solid #ddd;border-radius:4px;margin:6px 0">
   <label>Auflagezahl:</label>
   <input type="text" id="infoMintage" placeholder="z.B. 378.400.000">
   <div style="margin-top:6px">
@@ -500,6 +500,10 @@ body.missing-mode td.cell-missing{{background:#ffe0e0!important;outline:2px soli
   <div id="infoCoinDetails" style="display:none;margin-top:8px;border-top:1px solid #e0e0e0;padding-top:8px">
     <div style="font-size:8pt;font-weight:bold;color:#555;margin-bottom:4px">Münzdetails</div>
     <div id="infoCoinEntries"></div>
+  </div>
+  <div id="infoColorSection" style="margin-top:8px;border-top:1px solid #e0e0e0;padding-top:8px">
+    <div style="font-size:8pt;font-weight:bold;color:#555;margin-bottom:4px">Zellfarbe</div>
+    <div id="infoColorPicker" style="display:flex;flex-wrap:wrap;gap:4px"></div>
   </div>
   <div style="margin-top:8px;text-align:right">
     <button id="infoSave" style="font-size:8pt;padding:4px 12px;cursor:pointer;border:1px solid #1a73e8;border-radius:3px;background:#1a73e8;color:#fff">Speichern</button>
@@ -587,8 +591,8 @@ body.missing-mode td.cell-missing{{background:#ffe0e0!important;outline:2px soli
                         name = COUNTRY_HEADERS[(r, bl)]
                         if name:
                             if cl == YEAR_COL[bl]:
-                                _left = f'<span class="c-left-btns"><span class="add-year" data-block="{bl}" data-country="{htmlmod.escape(name)}">+</span><span class="edit-country-btn" data-block="{bl}" data-country="{htmlmod.escape(name)}">✏️</span></span>'
-                                _right = f'<span class="info-btn" data-country="{htmlmod.escape(name)}">ℹ️</span>' if (name in MINTAGE_GIDS or name in MINTAGE_SHEET_NAMES) else '<span class="c-right-placeholder"></span>'
+                                _left = f'<span class="c-left-btns"><span class="add-year" data-block="{bl}" data-country="{htmlmod.escape(name)}">+</span></span>'
+                                _right = f'<span class="info-btn" data-country="{htmlmod.escape(name)}">ℹ️</span>'
                                 _cst = country_stats.get((bl, name))
                                 if _cst and _cst['total']:
                                     _pct = round(100 * _cst['filled'] / _cst['total'])
@@ -726,8 +730,6 @@ body.missing-mode td.cell-missing{{background:#ffe0e0!important;outline:2px soli
     setTimeout(function(){ msgDiv.style.display = 'none'; }, 3000);
   }
 
-  // ───── Per-country edit mode ─────
-  let activeEditCountries = new Set();
   const ctxMenu = document.getElementById('ctxMenu');
 
   // Context menu items
@@ -844,29 +846,6 @@ body.missing-mode td.cell-missing{{background:#ffe0e0!important;outline:2px soli
     refreshMissingHighlight();
   });
 
-  function setEditModeForCountry(block, country, on) {
-    const key = block + ':' + country;
-    if (on) activeEditCountries.add(key); else activeEditCountries.delete(key);
-    document.querySelectorAll('[data-ref][data-block="' + block + '"][data-country="' + CSS.escape(country) + '"]').forEach(function(td){
-      if (td.getAttribute('data-xlocked')) {
-        td.contentEditable = 'false';
-      } else {
-        td.contentEditable = on ? 'false' : 'true';
-      }
-    });
-  }
-
-  document.querySelectorAll('.edit-country-btn').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      const block = this.getAttribute('data-block');
-      const country = this.getAttribute('data-country');
-      const key = block + ':' + country;
-      const on = !activeEditCountries.has(key);
-      setEditModeForCountry(block, country, on);
-      this.classList.toggle('active', on);
-    });
-  });
 
   // ───── Info mode (per country) ─────
   let infoMode = false;
@@ -875,8 +854,6 @@ body.missing-mode td.cell-missing{{background:#ffe0e0!important;outline:2px soli
   function setInfoModeCells(on) {
     document.querySelectorAll('[data-ref]').forEach(function(td) {
       if (td.getAttribute('data-xlocked')) { td.contentEditable = 'false'; return; }
-      const _key = (td.getAttribute('data-block') || '') + ':' + (td.getAttribute('data-country') || '');
-      if (activeEditCountries.has(_key)) return; // keep ctx-menu mode unchanged
       td.contentEditable = on ? 'false' : 'true';
     });
   }
@@ -907,6 +884,8 @@ body.missing-mode td.cell-missing{{background:#ffe0e0!important;outline:2px soli
   const infoModal = document.getElementById('infoModal');
   const infoOverlay = document.getElementById('infoOverlay');
   let infoRef = null;
+  let infoColorType = null;
+  let infoOrigCellType = null;
 
   const QUALITY_LABELS = {
     '\u2714': 'Qualität noch nicht bestimmt',
@@ -1026,7 +1005,43 @@ body.missing-mode td.cell-missing{{background:#ffe0e0!important;outline:2px soli
     if (!e.target.closest('.value-picker')) hideValuePicker();
   });
 
-  function showInfoModal(ref, country, year, denom, mintage, link, cellVal, ccName) {
+  // ───── Info modal color picker ─────
+  const INFO_COLOR_ITEMS = [
+    {type:'green',  label:'>5 Mio',   color:'#C5DEB5'},
+    {type:'blue',   label:'2–5 Mio',  color:'#8EAADB'},
+    {type:'orange', label:'1–2 Mio',  color:'#FF8C42'},
+    {type:'yellow', label:'≤1 Mio',   color:'#FFE598'},
+    {type:'nifc',   label:'NIFC',     color:'#FFC7CE'},
+    {type:'x',      label:'✕ nie',    color:'#FFC7CE'},
+    {type:'nodata', label:'Standard', color:'#fff'},
+  ];
+  function buildInfoColorPicker(currentType) {
+    infoColorType = currentType || '';
+    infoOrigCellType = currentType || '';
+    var picker = document.getElementById('infoColorPicker');
+    picker.innerHTML = INFO_COLOR_ITEMS.map(function(item) {
+      var isCur = (item.type === currentType) || (item.type === 'nodata' && !currentType);
+      return '<span class="info-color-btn" data-icolor="' + item.type + '" title="' + item.label + '"' +
+        ' style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;border:1px solid #aaa;border-radius:3px;padding:2px 5px;font-size:7pt;' +
+        (isCur ? 'outline:2px solid #1a73e8;outline-offset:1px;' : '') + '">' +
+        '<span style="display:inline-block;width:10px;height:10px;background:' + item.color + ';border:1px solid #888;flex-shrink:0"></span>' +
+        item.label + '</span>';
+    }).join('');
+    picker.querySelectorAll('.info-color-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var t = this.getAttribute('data-icolor');
+        infoColorType = (t === 'nodata') ? '' : t;
+        picker.querySelectorAll('.info-color-btn').forEach(function(b) {
+          b.style.outline = ''; b.style.outlineOffset = '';
+        });
+        this.style.outline = '2px solid #1a73e8';
+        this.style.outlineOffset = '1px';
+      });
+    });
+  }
+
+  function showInfoModal(ref, country, year, denom, mintage, link, cellVal, ccName, cellType) {
     infoRef = ref;
     document.getElementById('infoTitle').textContent = country + ' ' + year + ' ' + denom;
     var imgEl = document.getElementById('infoCoinImg');
@@ -1064,6 +1079,7 @@ body.missing-mode td.cell-missing{{background:#ffe0e0!important;outline:2px soli
     } else {
       detailsDiv.style.display = 'none';
     }
+    buildInfoColorPicker(cellType || '');
     infoModal.style.display = 'block';
     infoOverlay.style.display = 'block';
   }
@@ -1084,6 +1100,28 @@ body.missing-mode td.cell-missing{{background:#ffe0e0!important;outline:2px soli
     if (!infoRef) return;
     var mintage = document.getElementById('infoMintage').value.trim();
     var link = document.getElementById('infoLink').value.trim();
+    // Save cell color type if changed
+    var newCt = infoColorType != null ? infoColorType : '';
+    var origCt = infoOrigCellType != null ? infoOrigCellType : '';
+    if (newCt !== origCt) {
+      var colorMap = {green:'#C5DEB5',blue:'#8EAADB',orange:'#FF8C42',yellow:'#FFE598',nifc:'#FFC7CE',x:'#FFC7CE'};
+      var td = document.querySelector('[data-ref="' + infoRef + '"]');
+      if (td) {
+        if (newCt === 'x') {
+          td.textContent = '✕'; td.setAttribute('data-xlocked','1'); td.contentEditable='false'; td.style.background='#FFC7CE';
+        } else {
+          td.removeAttribute('data-xlocked');
+          if (td.textContent === '✕') td.textContent = '';
+          td.style.background = colorMap[newCt] || '';
+          td.contentEditable = 'false'; // still in info mode
+        }
+        td.setAttribute('data-ct', newCt);
+        updateMissingCell(td);
+      }
+      var ctBody = {}; ctBody[infoRef] = newCt || 'nodata';
+      fetch('/api/cell-types', {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(ctBody)})
+        .then(function(r){ return r.json(); }).then(function(j){ if (!j.ok) showMsg('Farbe-Fehler: '+(j.error||''), true); });
+    }
     var body = {};
     body[infoRef] = {mintage: mintage, link: link};
     fetch('/api/coin-info', {
@@ -1137,8 +1175,6 @@ body.missing-mode td.cell-missing{{background:#ffe0e0!important;outline:2px soli
       this._origVal = this.textContent.trim();
     });
     td.addEventListener('blur', function() {
-      const _key = (this.getAttribute('data-block') || '') + ':' + (this.getAttribute('data-country') || '');
-      if (activeEditCountries.has(_key)) return;  // don't save while in edit mode
       // If cell was x-locked, revert value
       if (this.getAttribute('data-xlocked')) {
         this.textContent = '✕';
@@ -1172,12 +1208,7 @@ body.missing-mode td.cell-missing{{background:#ffe0e0!important;outline:2px soli
     // In edit mode, click opens context menu. In info mode, opens info modal.
     td.addEventListener('click', function(e) {
       if (!this.getAttribute('data-ref')) return;
-      const _cellKey = (this.getAttribute('data-block') || '') + ':' + (this.getAttribute('data-country') || '');
-      if (activeEditCountries.has(_cellKey)) {
-        e.preventDefault();
-        e.stopPropagation();
-        showCtx(this, e.clientX, e.clientY);
-      } else if (infoMode) {
+      if (infoMode) {
         e.preventDefault();
         e.stopPropagation();
         var ref = this.getAttribute('data-ref');
@@ -1198,7 +1229,7 @@ body.missing-mode td.cell-missing{{background:#ffe0e0!important;outline:2px soli
         var link = this.getAttribute('data-link') || '';
         var cellVal = this.textContent.trim();
         var ccName = this.getAttribute('data-cc-name') || '';
-        showInfoModal(ref, country, year, denom, mintage, link, cellVal, ccName);
+        showInfoModal(ref, country, year, denom, mintage, link, cellVal, ccName, this.getAttribute('data-ct') || '');
       }
     });
   });
