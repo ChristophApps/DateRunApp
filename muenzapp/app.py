@@ -1,1362 +1,1269 @@
-import json, html as htmlmod, re, os, io
+import json, html as htmlmod, re, os, io, urllib.request, datetime, hashlib
 from flask import Flask, request, jsonify, send_file
-from openpyxl import load_workbook, Workbook
-from openpyxl.utils import get_column_letter
+from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from openpyxl.utils import get_column_letter
 
 app = Flask(__name__)
 
-EXCEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Date Run Mai2026.xlsx')
-BASE_DIR = os.path.dirname(os.path.abspath(__file__)) or '.'
+@app.after_request
+def nocache(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(BASE_DIR, 'data.json')
-MAX_ROW, MAX_COL = 216, 42
-EXT_OFFSET = 10000  # offset for extension row references
+MINTAGE_STATIC_PATH = os.path.join(BASE_DIR, 'mintage_static.json')
+SHEET_ID = '1lGbzcTmMfzQjE-7ENMhrSMpMlu859fYCAqH8juDhb40'
+SHEET_XLSX_URL = f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=xlsx'
 
-THEME = {
-    0: '000000', 1: 'FFFFFF', 2: '44546A', 3: 'E7E6E6',
-    4: '4472C4', 5: 'ED7D31', 6: 'A5A5A5', 7: 'FFC000',
-    8: '5B9BD5', 9: '70AD47',
+DENOM_LABEL = {
+    'B': '1c', 'C': '2c', 'D': '5c', 'E': '10c', 'F': '20c', 'G': '50c', 'H': '1\u20ac', 'I': '2\u20ac',
+    'K': 'CC', 'L': 'CC', 'M': 'CC',
+    'P': '1c', 'Q': '2c', 'R': '5c', 'S': '10c', 'T': '20c', 'U': '50c', 'V': '1\u20ac', 'W': '2\u20ac',
+    'Y': 'CC', 'Z': 'CC', 'AA': 'CC',
+    'AD': '1c', 'AE': '2c', 'AF': '5c', 'AG': '10c', 'AH': '20c', 'AI': '50c', 'AJ': '1\u20ac', 'AK': '2\u20ac',
+    'AM': 'CC', 'AN': 'CC', 'AO': 'CC',
 }
+CC_COL_IDX = {'K': 1, 'L': 2, 'M': 3, 'Y': 1, 'Z': 2, 'AA': 3, 'AM': 1, 'AN': 2, 'AO': 3}
+DENOM_CENTS = {'1c': 1, '2c': 2, '5c': 5, '10c': 10, '20c': 20, '50c': 50, '1\u20ac': 100, '2\u20ac': 200, 'CC': 200}
+COIN_RE = re.compile(r'[\u2714\d][\u00b0o*]?|\[[^\]]*\]')
+_COIN_RE = COIN_RE
+IMAGE_BASE = 'https://www.eurocollection.co.uk/Euros'
+_CT_COLOR = {'green': 'C5DEB5', 'blue': '8EAADB', 'orange': 'FF8C42', 'yellow': 'FFE598', 'nifc': 'FFC7CE', 'x': 'FFC7CE'}
 
-def apply_tint(hex_color, tint):
-    r = int(hex_color[0:2], 16)
-    g = int(hex_color[2:4], 16)
-    b = int(hex_color[4:6], 16)
-    if tint >= 0:
-        r = int(r + tint * (255 - r))
-        g = int(g + tint * (255 - g))
-        b = int(b + tint * (255 - b))
-    else:
-        r = int(r * (1 + tint))
-        g = int(g * (1 + tint))
-        b = int(b * (1 + tint))
-    return f'{max(0,min(255,r)):02X}{max(0,min(255,g)):02X}{max(0,min(255,b)):02X}'
+BLOCK_COLS = {
+    'A': {'year': 'A', 'denoms': ['B','C','D','E','F','G','H','I'], 'igap': 'J', 'ccs': ['K','L','M']},
+    'O': {'year': 'O', 'denoms': ['P','Q','R','S','T','U','V','W'], 'igap': 'X', 'ccs': ['Y','Z','AA']},
+    'AC': {'year': 'AC', 'denoms': ['AD','AE','AF','AG','AH','AI','AJ','AK'], 'igap': 'AL', 'ccs': ['AM','AN','AO']},
+}
+GAP_COLS = {'A_O': 'N', 'O_AC': 'AB', 'END': 'AP'}
 
-def cell_fill_rgb(cell):
-    fill = cell.fill
-    if not fill or not fill.fgColor: return None
-    fg = fill.fgColor
-    if fg.type == 'rgb' and fg.rgb and isinstance(fg.rgb, str) and len(fg.rgb) == 8 and fg.rgb not in ('FF000000', '00000000'):
-        return fg.rgb[2:]
-    if fg.theme is not None and fg.type == 'theme':
-        try:
-            ti = int(str(fg.theme))
-            if ti == 0 and (fg.tint is None or fg.tint == 0.0):
-                return None
-            base = THEME.get(ti)
-            if base: return apply_tint(base, fg.tint if fg.tint else 0.0)
-        except: pass
-    return None
+def make_block_ordered_cols(bl: str) -> list:
+    bc = BLOCK_COLS[bl]
+    return [bc['year']] + bc['denoms'] + [bc['igap']] + bc['ccs']
 
-def is_dark(hex_color):
-    r = int(hex_color[0:2], 16)
-    g = int(hex_color[2:4], 16)
-    b = int(hex_color[4:6], 16)
+COLS_ORDER = []
+for bl in ('A', 'O', 'AC'):
+    COLS_ORDER.extend(make_block_ordered_cols(bl))
+    if bl == 'A':
+        COLS_ORDER.append(GAP_COLS['A_O'])
+    elif bl == 'O':
+        COLS_ORDER.append(GAP_COLS['O_AC'])
+COLS_ORDER.append(GAP_COLS['END'])
+
+COL_TO_BLOCK = {}
+for bl in ('A', 'O', 'AC'):
+    for cl in make_block_ordered_cols(bl):
+        COL_TO_BLOCK[cl] = bl
+for g in GAP_COLS.values():
+    COL_TO_BLOCK[g] = None
+
+def make_denom_key(cl: str) -> str:
+    dl = DENOM_LABEL.get(cl, '')
+    if dl == 'CC':
+        return f'CC{CC_COL_IDX.get(cl, 1)}'
+    return dl
+
+def is_dark(hex_color: str) -> bool:
+    r = int(hex_color[0:2], 16); g = int(hex_color[2:4], 16); b = int(hex_color[4:6], 16)
     return r * 0.299 + g * 0.587 + b * 0.114 < 140
 
-print("Loading Excel...")
-try:
-    wb = load_workbook(EXCEL_PATH, data_only=True)
-except FileNotFoundError:
-    raise SystemExit(f"ERROR: Excel file not found at {EXCEL_PATH!r}. Place 'Date Run Mai2026.xlsx' in the project root.")
-except Exception as e:
-    raise SystemExit(f"ERROR: Could not load Excel file: {e}")
-ws = wb.active
-
-base_data = {}
-fills = {}
-for r in range(1, MAX_ROW + 1):
-    for c in range(1, MAX_COL + 1):
-        cell = ws.cell(row=r, column=c)
-        ref = get_column_letter(c) + str(r)
-        if cell.value is not None:
-            base_data[ref] = str(cell.value)
-        frgb = cell_fill_rgb(cell)
-        if frgb:
-            if frgb in ('3D4B5F', '333F4F', 'AEAAAA', 'D0CECE'):
-                frgb = 'FFC7CE'
-            if frgb == 'F7CAAC':
-                frgb = 'FF8C42'
-            fills[ref] = frgb
-
-merges = {}
-for m in ws.merged_cells.ranges:
-    if m.min_row > MAX_ROW or m.min_col > MAX_COL: continue
-    max_row, max_col = min(m.max_row, MAX_ROW), min(m.max_col, MAX_COL)
-    if max_row < m.min_row or max_col < m.min_col: continue
-    for r in range(m.min_row, max_row + 1):
-        for c in range(m.min_col, max_col + 1):
-            ref = get_column_letter(c) + str(r)
-            if r == m.min_row and c == m.min_col:
-                merges[ref] = {'cs': max_col - m.min_col + 1, 'rs': max_row - m.min_row + 1}
-            else:
-                merges[ref] = {'skip': True}
-
-cols_letters = [get_column_letter(i) for i in range(1, MAX_COL + 1)]
-
-col_types = {}
-for cl in cols_letters:
-    if cl in ('A', 'O', 'AC'): col_types[cl] = 'year'
-    elif cl in ('J', 'X', 'AL'): col_types[cl] = 'inner-gap'
-    elif cl in ('N', 'AB', 'AP'): col_types[cl] = 'gap'
-    elif cl in ('K', 'L', 'M', 'Y', 'Z', 'AA', 'AM', 'AN', 'AO'): col_types[cl] = 'cc'
-    else: col_types[cl] = 'den'
-
-col_widths = {}
-for ci in range(1, MAX_COL + 1):
-    letter = get_column_letter(ci)
-    if letter in ws.column_dimensions and ws.column_dimensions[letter].width is not None:
-        w = ws.column_dimensions[letter].width
-    else:
-        t = col_types.get(letter, 'den')
-        if t == 'year': w = 5.5
-        elif t == 'gap': w = 5.66
-        elif t == 'inner-gap': w = 0.66
-        else: w = 2.83
-    if col_types.get(letter) in ('den', 'cc'):
-        w *= 1.25
-    col_widths[letter] = max(w, 0.66)
-
-total_w = sum(max(col_widths[l] * 7.5, 6) for l in cols_letters)
-
-col_to_block = {}
-for ci, cl in enumerate(cols_letters):
-    if ci < 13: col_to_block[cl] = 'A'
-    elif ci < 14: col_to_block[cl] = None
-    elif ci < 27: col_to_block[cl] = 'O'
-    elif ci < 28: col_to_block[cl] = None
-    elif ci < 41: col_to_block[cl] = 'AC'
-    else: col_to_block[cl] = None
-
-COUNTRY_HEADERS = {
-    (1, 'A'): 'Österreich', (1, 'O'): '', (1, 'AC'): 'Italien',
-    (29, 'A'): 'Frankreich', (29, 'O'): 'Spanien', (29, 'AC'): 'Finnland',
-    (61, 'A'): 'Belgien', (61, 'O'): 'Niederlande', (61, 'AC'): 'Luxemburg',
-    (94, 'A'): 'Irland', (94, 'O'): 'Griechenland', (94, 'AC'): 'Portugal',
-    (124, 'A'): 'Slowenien', (124, 'O'): 'Malta', (124, 'AC'): 'Zypern',
-    (148, 'A'): 'Slowakei', (148, 'O'): 'Estland', (148, 'AC'): 'Lettland/Latvia',
-    (172, 'A'): 'Litauen/Lietuva', (172, 'O'): 'Kroatien', (172, 'AC'): 'Andorra',
-    (180, 'O'): 'Bulgarien',
-    (189, 'A'): 'San Marino', (189, 'O'): 'Monaca', (189, 'AC'): 'Vatikan',
-}
-
-block_countries = {'A': [], 'O': [], 'AC': []}
-for (r, bl), name in sorted(COUNTRY_HEADERS.items()):
-    block_countries[bl].append((r, name))
-
-block_row_type = {'A': {}, 'O': {}, 'AC': {}}
-for bl in ['A', 'O', 'AC']:
-    for i, (cr, cname) in enumerate(block_countries[bl]):
-        next_cr = block_countries[bl][i+1][0] if i+1 < len(block_countries[bl]) else MAX_ROW + 1
-        block_row_type[bl][cr] = 'country'
-        if next_cr > cr + 2:
-            block_row_type[bl][cr+1] = 'colheader'
-            for dr in range(cr+2, next_cr):
-                block_row_type[bl][dr] = 'data'
-
-YEAR_COL = {'A': 'A', 'O': 'O', 'AC': 'AC'}
-
-# ─── data.json: overrides + extensions ───
-def load_doc():
+def load_doc() -> dict:
     if os.path.exists(DATA_PATH):
-        try:
-            with open(DATA_PATH, 'r', encoding='utf-8') as f:
-                d = json.load(f)
-            if isinstance(d, dict) and 'overrides' in d:
-                return d
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"Warning: could not load {DATA_PATH} ({e}), starting with empty data")
-    return {'overrides': {}, 'extensions': {}, 'cell_types': {}, 'undo_stack': [], 'mintage': {}, 'image_links': {}}
+        with open(DATA_PATH, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
 
-def save_doc(d):
+def save_doc(d: dict) -> None:
     tmp = DATA_PATH + '.tmp'
     with open(tmp, 'w', encoding='utf-8') as f:
         json.dump(d, f, ensure_ascii=False, indent=2)
-        f.flush()
-        os.fsync(f.fileno())
     os.replace(tmp, DATA_PATH)
 
 doc = load_doc()
-if 'mintage' not in doc: doc['mintage'] = {}
-if 'image_links' not in doc: doc['image_links'] = {}
-# overrides: standard cell ref overrides (like "B3": "✔")
-# extensions: {"A": {"Österreich": ["2027", "2028"]}, ...}
-overrides = doc.get('overrides', {})
-extensions = doc.get('extensions', {})
-cell_types = doc.get('cell_types', {})
-undo_stack = doc.get('undo_stack', [])
-mintage_data = doc.get('mintage', {})
-image_links = doc.get('image_links', {})
-cc_coin_names = {}  # populated from Google Sheet at startup, not persisted
 
-# ─── Load mintage from Google Sheet ───
-MINTAGE_GIDS = {'Österreich': 536134290, 'Italien': 1836387929}
-MINTAGE_SHEET_NAMES = {'Frankreich': 'France'}  # sheet name fallback when no GID available
-MINTAGE_BLOCK = {'Österreich': 'A', 'Italien': 'AC', 'Frankreich': 'A'}
-COUNTRY_TO_EC = {'Österreich': 'Austria', 'Italien': 'Italy', 'Frankreich': 'France'}
-EC_BASE = 'https://www.eurocollection.co.uk'
-# Google Sheet CSV columns (2-12) mapped to denomination labels (same for all blocks)
-GS_DENOMS = ['1c','2c','5c','10c','20c','50c','E1','E2','E2 CC 1','E2 CC 2','E2 CC 3']
+COINS = doc.get('coins', {})
+COINS_MINT = doc.get('coins_mint', {})
+MINTAGE = doc.get('mintage', {})
+MINTAGE_MINT = doc.get('mintage_mint', {})
+CC_NAMES = doc.get('cc_coin_names', {})
+IMAGE_LINKS_MINT = doc.get('image_links_mint', {})
+FILL_COLORS = doc.get('fill_colors', {})
+COUNTRIES = doc.get('countries', [])
+COUNTRY_YEARS = doc.get('country_years', {})
+EXTENSIONS = doc.get('extensions', {})
+UNDO_STACK = doc.get('undo_stack', [])
+REDO_STACK = doc.get('redo_stack', [])
 
-def block_col_map(bl):
-    year_letter = YEAR_COL[bl]
-    # Find the 0-based index of year_letter in cols_letters
-    yi = cols_letters.index(year_letter)
-    # Denom cols: 8 letters starting after year col
-    den_start = yi + 1
-    den_cols = {}
-    for i in range(8):
-        den_cols[i + 2] = cols_letters[den_start + i]
-    # CC cols: 3 letters after den + inner-gap (skip 1)
-    cc_start = den_start + 9
-    for i in range(3):
-        den_cols[i + 10] = cols_letters[cc_start + i]
-    return den_cols
+def _build_coin_years_cache() -> dict:
+    cache = {}
+    for k in COINS:
+        parts = k.split(':')
+        if len(parts) >= 2:
+            cache.setdefault(parts[0], set()).add(parts[1])
+    return cache
 
-def format_mintage_val(raw):
-    raw = raw.strip()
-    clean = raw.replace('.', '').replace(',', '')
+_COIN_YEARS = _build_coin_years_cache()
+
+def get_country_from_ref(ref: str) -> str:
+    parts = ref.split(':')
+    return parts[0] if len(parts) >= 3 else ''
+
+def country_has_mints(cname: str) -> bool:
+    for c in COUNTRIES:
+        if c['name'] == cname:
+            return bool(c.get('mint_marks', []))
+    return False
+
+def _resolve_storage(ref: str, mint_arg=None) -> tuple:
+    cname = get_country_from_ref(ref)
+    use_mint = mint_arg and country_has_mints(cname)
+    if use_mint:
+        return COINS_MINT, ref + ':' + mint_arg, cname, True
+    return COINS, ref, cname, False
+
+def save_all():
+    global doc, COINS, COINS_MINT, MINTAGE, MINTAGE_MINT, CC_NAMES, IMAGE_LINKS_MINT, COUNTRIES, COUNTRY_YEARS, EXTENSIONS, UNDO_STACK, REDO_STACK
+    doc['coins'] = COINS
+    doc['coins_mint'] = COINS_MINT
+    doc['mintage'] = MINTAGE
+    doc['mintage_mint'] = MINTAGE_MINT
+    doc['cc_coin_names'] = CC_NAMES
+    doc['image_links_mint'] = IMAGE_LINKS_MINT
+    doc['fill_colors'] = FILL_COLORS
+    doc['countries'] = COUNTRIES
+    doc['country_years'] = COUNTRY_YEARS
+    doc['extensions'] = EXTENSIONS
+    doc['undo_stack'] = UNDO_STACK
+    doc['redo_stack'] = REDO_STACK
+    save_doc(doc)
+
+def coin_key(cname: str, year: str, denom: str) -> str:
+    return f'{cname}:{year}:{denom}'
+
+def mint_coin_key(cname: str, year: str, denom: str, mint: str) -> str:
+    return f'{cname}:{year}:{denom}:{mint}'
+
+def get_coin(cname: str, year: str, denom: str, mint=None) -> dict:
+    if mint:
+        mk = mint_coin_key(cname, year, denom, mint)
+        if mk in COINS_MINT:
+            return COINS_MINT[mk]
+    return COINS.get(coin_key(cname, year, denom), {})
+
+def set_coin(cname: str, year: str, denom: str, mint: str, value: str, cell_type: str, image_url: str):
+    if mint:
+        mk = mint_coin_key(cname, year, denom, mint)
+        entry = COINS_MINT.get(mk, {})
+        if value:
+            entry['v'] = value
+        else:
+            entry.pop('v', None)
+        if cell_type:
+            entry['ct'] = cell_type
+        else:
+            entry.pop('ct', None)
+        if image_url:
+            entry['img'] = image_url
+        else:
+            entry.pop('img', None)
+        if entry:
+            COINS_MINT[mk] = entry
+        else:
+            COINS_MINT.pop(mk, None)
+    else:
+        ck = coin_key(cname, year, denom)
+        entry = COINS.get(ck, {})
+        if value:
+            entry['v'] = value
+        else:
+            entry.pop('v', None)
+        if cell_type:
+            entry['ct'] = cell_type
+        else:
+            entry.pop('ct', None)
+        if image_url:
+            entry['img'] = image_url
+        else:
+            entry.pop('img', None)
+        if entry:
+            COINS[ck] = entry
+        else:
+            COINS.pop(ck, None)
+
+def _year_sort_key(y: str) -> tuple:
+    if y.isdigit():
+        return (0, int(y), '')
+    m = re.match(r'^(\d+)', y)
+    if m:
+        return (0, int(m.group(1)), y)
+    _custom = {'EFS': 2002}
+    if y in _custom:
+        return (0, _custom[y], y)
+    return (1, y, '')
+
+def get_years(cname: str) -> list:
+    base = COUNTRY_YEARS.get(cname, [])
+    ext = EXTENSIONS.get(cname, [])
+    coin_yrs = _COIN_YEARS.get(cname, set())
+    return sorted(set(base) | set(ext) | coin_yrs, key=_year_sort_key)
+
+def format_mintage_val(raw) -> str:
+    if not raw:
+        return ''
+    clean = str(raw).replace('.', '').replace(',', '')
     if clean.isdigit():
         n = int(clean)
         return f'{n:,}'.replace(',', '.')
-    return raw
+    return str(raw)
 
-def load_mintage_sheet(country_name):
-    import urllib.request, csv, io
-    gid = MINTAGE_GIDS.get(country_name)
-    sheet_name = MINTAGE_SHEET_NAMES.get(country_name)
-    if not gid and not sheet_name: return {}, {}, {}
-    bl = MINTAGE_BLOCK.get(country_name, 'A')
-    ec_name = COUNTRY_TO_EC.get(country_name, country_name)
-    gs_map = block_col_map(bl)
-    doc_id = '1lGbzcTmMfzQjE-7ENMhrSMpMlu859fYCAqH8juDhb40'
-    if gid:
-        url = f'https://docs.google.com/spreadsheets/d/{doc_id}/export?format=csv&gid={gid}'
-    else:
-        url = f'https://docs.google.com/spreadsheets/d/{doc_id}/gviz/tq?tqx=out:csv&sheet={urllib.request.quote(sheet_name)}'
-    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-    try:
-        resp = urllib.request.urlopen(req, timeout=10)
-        raw_text = resp.read().decode('utf-8')
-    except:
-        return {}, {}, {}
-    rows = list(csv.reader(io.StringIO(raw_text)))
-    out_m = {}
-    out_l = {}
-    out_cn = {}  # CC coin names: ref -> name
-    # Map gs_col (10/11/12) to the name column index in the CSV (14/15/16)
-    CC_NAME_IDX = {10: 14, 11: 15, 12: 16}
-    for ri, parts in enumerate(rows):
-        if len(parts) < 13: continue
-        year = parts[1].strip()
-        if not year.isdigit(): continue
-        bl_info = block_countries.get(bl, [])
-        found_row = None
-        for (cr, cn) in bl_info:
-            if cn != country_name: continue
-            nxt = bl_info[bl_info.index((cr,cn))+1][0] if bl_info.index((cr,cn))+1 < len(bl_info) else MAX_ROW + 1
-            for dr in range(cr + 2, nxt):
-                yr = base_data.get(YEAR_COL[bl] + str(dr), '')
-                if yr == year:
-                    found_row = dr
-                    break
+def mintage_for(cname: str, year: str, denom: str, mint=None) -> str:
+    if mint:
+        mk = mint_coin_key(cname, year, denom, mint)
+        if mk in MINTAGE_MINT:
+            return MINTAGE_MINT[mk]
+    ck = coin_key(cname, year, denom)
+    return MINTAGE.get(ck, '')
+
+def image_url_for(cname: str, year: str, denom: str, cl=None):
+    eng = None
+    for c in COUNTRIES:
+        if c['name'] == cname:
+            eng = c.get('image_name_en', '')
             break
-        if not found_row:
-            yr_idx = int(year) - 2002
-            found_row = 3 + yr_idx
-        for gs_col, ex_col in gs_map.items():
-            raw = parts[gs_col].strip() if gs_col < len(parts) else ''
-            if not raw: continue
-            ref = ex_col + str(found_row)
-            out_m[ref] = format_mintage_val(raw)
-            den = GS_DENOMS[gs_col - 2]
-            if den and raw.upper() != 'N/A':
-                img_path = f'{EC_BASE}/Euros/{ec_name}/{ec_name} {year} {den}.JPG'
-                out_l[ref] = img_path
-            # CC coin name (only for CC columns gs_col 10/11/12)
-            if gs_col in CC_NAME_IDX:
-                ni = CC_NAME_IDX[gs_col]
-                if ni < len(parts):
-                    cname = parts[ni].strip()
-                    if cname and cname.upper() != 'N/A':
-                        out_cn[ref] = cname
-    return out_m, out_l, out_cn
+    if not eng:
+        return None
+    if denom == '1\u20ac':
+        dpart = 'E1'
+    elif denom == '2\u20ac' or (denom and denom.startswith('CC')):
+        dpart = 'E2 CC ' + (denom[-1] if denom.startswith('CC') else '1')
+    elif denom == '1c':
+        dpart = '1c'
+    elif denom == '2c':
+        dpart = '2c'
+    elif denom == '5c':
+        dpart = '5c'
+    elif denom == '10c':
+        dpart = '10c'
+    elif denom == '20c':
+        dpart = '20c'
+    elif denom == '50c':
+        dpart = '50c'
+    else:
+        dpart = denom
+    return f'{IMAGE_BASE}/{eng}/{eng} {year} {dpart}.JPG'
 
-# Load mintage + image links + CC coin names
-for _c in ['Österreich', 'Italien', 'Frankreich']:
-    _m, _l, _cn = load_mintage_sheet(_c)
-    mintage_data.update(_m)
-    image_links.update(_l)
-    cc_coin_names.update(_cn)
+def image_url_for_cl(cname, year, cl):
+    dl = DENOM_LABEL.get(cl, '')
+    if not dl:
+        return None
+    if dl == 'CC':
+        cc_idx = CC_COL_IDX.get(cl, 1)
+        dk = f'CC{cc_idx}'
+    else:
+        dk = dl
+    return image_url_for(cname, year, dk)
 
-def merge_data():
-    d = dict(base_data)
-    d.update(overrides)
-    return d
+def coin_value(coin_entry) -> str:
+    return (coin_entry or {}).get('v', '')
 
-# ─── Segments: groups of countries sharing a row range ───
-# Each segment: (start_row, [(block, country_name)])
-SEGMENTS = [
-    (1,   [('A', 'Österreich'), ('O', ''),            ('AC', 'Italien')]),
-    (29,  [('A', 'Frankreich'), ('O', 'Spanien'),      ('AC', 'Finnland')]),
-    (61,  [('A', 'Belgien'),    ('O', 'Niederlande'),   ('AC', 'Luxemburg')]),
-    (94,  [('A', 'Irland'),     ('O', 'Griechenland'),  ('AC', 'Portugal')]),
-    (124, [('A', 'Slowenien'),  ('O', 'Malta'),         ('AC', 'Zypern')]),
-    (148, [('A', 'Slowakei'),   ('O', 'Estland'),       ('AC', 'Lettland/Latvia')]),
-    (172, [('A', 'Litauen/Lietuva'), ('O', 'Kroatien'), ('AC', 'Andorra')]),
-    (180, [('O', 'Bulgarien')]),
-    (189, [('A', 'San Marino'), ('O', 'Monaca'),       ('AC', 'Vatikan')]),
-]
+def coin_cell_type(coin_entry) -> str:
+    return (coin_entry or {}).get('ct', '')
 
-# Enrich segments with end row + last-real-data-row per block
-segments = []
-for idx, (start, entries) in enumerate(SEGMENTS):
-    end = SEGMENTS[idx + 1][0] - 1 if idx + 1 < len(SEGMENTS) else MAX_ROW
-    last_data = {}
-    for bl, cname in entries:
-        if not cname:
+def coin_image(coin_entry) -> str:
+    return (coin_entry or {}).get('img', '')
+
+def compute_segments(exclude_country=None):
+    ordered = sorted(COUNTRIES, key=lambda c: c.get('display_order', 0))
+    segments = []
+    cur_row = 1
+    # Greedy: each segment gets the next unassigned country from each block
+    # Iterate through all countries in display_order, place into first segment
+    # that doesn't have that block yet
+    for c in ordered:
+        if exclude_country and c['name'] == exclude_country:
             continue
-        found = start + 1
-        for r in range(end, start + 2, -1):
-            if base_data.get(YEAR_COL[bl] + str(r), ''):
-                found = r
+        bl = c.get('block', 'A')
+        if bl not in ('A', 'O', 'AC'):
+            continue
+        yrs = get_years(c['name'])
+        placed = False
+        for seg in segments:
+            existing_blocks = {e['block'] for e in seg['entries']}
+            if bl not in existing_blocks:
+                seg['entries'].append({'block': bl, 'country': c, 'years': yrs})
+                seg['max_years'] = max(seg['max_years'], len(yrs))
+                placed = True
                 break
-        last_data[bl] = found
-    segments.append({'start': start, 'end': end, 'entries': entries, 'last_data': last_data})
+        if not placed:
+            segments.append({
+                'entries': [{'block': bl, 'country': c, 'years': yrs}],
+                'max_years': len(yrs)
+            })
+    # Reorder entries within each segment to A, O, AC order
+    for seg in segments:
+        order_map = {'A': 0, 'O': 1, 'AC': 2}
+        seg['entries'].sort(key=lambda e: order_map.get(e['block'], 9))
+    # Assign start rows
+    for seg in segments:
+        seg['start'] = cur_row
+        cur_row += 2 + seg['max_years']
+    return segments
 
-# ─── Generate HTML ───
-def generate_html():
-    data = merge_data()
+def _compute_cell_color(cname, year, denom, mint=None, ct=None):
+    global FILL_COLORS
+    if ct == 'x':
+        return 'FFC7CE'
+    if ct and ct in _CT_COLOR:
+        return _CT_COLOR[ct]
+    ck = coin_key(cname, year, denom)
+    if ck in FILL_COLORS:
+        return FILL_COLORS[ck]
+    m = mintage_for(cname, year, denom, mint)
+    if m:
+        clean = str(m).replace('.', '').replace(',', '')
+        if clean.isdigit():
+            n = int(clean)
+            if n > 5000000:
+                return 'C5DEB5'
+            elif n > 2000000:
+                return '8EAADB'
+            elif n > 1000000:
+                return 'FF8C42'
+            elif n > 0:
+                return 'FFE598'
+            else:
+                return ''
+    return ''
+
+def _compute_all_stats(mint_arg=''):
+    _denom_val_cents = {'1c':1,'2c':2,'5c':5,'10c':10,'20c':20,'50c':50,'1\u20ac':100,'2\u20ac':200,'CC':200}
+    _denom_counts = {'1c':0,'2c':0,'5c':0,'10c':0,'20c':0,'50c':0,'1\u20ac':0,'2\u20ac':0,'CC':0}
+    _country_cell_stats = {}
+    _country_stats = {}
+    _reg_denom = {}
+    _nifc_denom = {}
+    _init_cs2 = lambda ck: _country_cell_stats.setdefault(ck, {'regFilled':0,'regTotal':0,'ccFilled':0,'ccTotal':0,'nifcFilled':0,'nifcTotal':0,'denomRegFilled':{},'denomRegTotal':{},'denomNifcFilled':{},'denomNifcTotal':{}})
+
+    for c in COUNTRIES:
+        cname = c['name']
+        bl = c['block']
+        ckey = bl + '|' + cname
+        mints = c.get('mint_marks', [])
+        yrs = get_years(cname)
+        for yr in yrs:
+            for dk in ['1c','2c','5c','10c','20c','50c','1\u20ac','2\u20ac','CC1','CC2','CC3']:
+                is_cc = dk.startswith('CC')
+                dl = dk if not is_cc else 'CC'
+                if mints:
+                    for mm in mints:
+                        mentry = get_coin(cname, yr, dk, mm)
+                        mval = coin_value(mentry)
+                        mct = coin_cell_type(mentry)
+                        mval_str = mval.strip() if isinstance(mval, str) else ''
+                        if mval_str in ('\u2715', '\u00d7') or mct == 'x':
+                            continue
+                        is_nifc = mct == 'nifc'
+                        has_coin = bool(mval_str)
+                        cs2 = _init_cs2(ckey)
+                        if is_nifc:
+                            cs2['nifcTotal'] += 1
+                            if has_coin: cs2['nifcFilled'] += 1
+                            nd = _nifc_denom.setdefault(dl, {'filled':0,'total':0})
+                            nd['total'] += 1
+                            if has_coin: nd['filled'] += 1
+                            cs2['denomNifcTotal'][dl] = cs2['denomNifcTotal'].get(dl, 0) + 1
+                            if has_coin: cs2['denomNifcFilled'][dl] = cs2['denomNifcFilled'].get(dl, 0) + 1
+                        elif is_cc:
+                            cs2['ccTotal'] += 1
+                            if has_coin: cs2['ccFilled'] += 1
+                            cs2['denomRegTotal']['CC'] = cs2['denomRegTotal'].get('CC', 0) + 1
+                            if has_coin: cs2['denomRegFilled']['CC'] = cs2['denomRegFilled'].get('CC', 0) + 1
+                        else:
+                            cs2['regTotal'] += 1
+                            if has_coin: cs2['regFilled'] += 1
+                            rd = _reg_denom.setdefault(dl, {'filled':0,'total':0})
+                            rd['total'] += 1
+                            if has_coin: rd['filled'] += 1
+                            cs2['denomRegTotal'][dl] = cs2['denomRegTotal'].get(dl, 0) + 1
+                            if has_coin: cs2['denomRegFilled'][dl] = cs2['denomRegFilled'].get(dl, 0) + 1
+                        if has_coin:
+                            cnt = len(COIN_RE.findall(mval_str))
+                            _denom_counts[dl] += cnt
+                            cs = _country_stats.setdefault(ckey, {'denom':{},'totalCents':0})
+                            cs['denom'][dl] = cs['denom'].get(dl,0)+cnt
+                            cs['totalCents'] += cnt*_denom_val_cents[dl]
+                else:
+                    entry = get_coin(cname, yr, dk)
+                    val = coin_value(entry)
+                    ct = coin_cell_type(entry)
+                    val_str = val.strip() if isinstance(val, str) else ''
+                    if val_str in ('\u2715', '\u00d7') or ct == 'x':
+                        continue
+                    fl = _compute_cell_color(cname, yr, dk, ct=ct)
+                    is_light_red = (fl == 'FFC7CE')
+                    has_coin = bool(val_str)
+                    cs2 = _init_cs2(ckey)
+                    if is_light_red:
+                        cs2['nifcTotal'] += 1
+                        if has_coin: cs2['nifcFilled'] += 1
+                        nd = _nifc_denom.setdefault(dl, {'filled':0,'total':0})
+                        nd['total'] += 1
+                        if has_coin: nd['filled'] += 1
+                        cs2['denomNifcTotal'][dl] = cs2['denomNifcTotal'].get(dl, 0) + 1
+                        if has_coin: cs2['denomNifcFilled'][dl] = cs2['denomNifcFilled'].get(dl, 0) + 1
+                    elif is_cc:
+                        cs2['ccTotal'] += 1
+                        if has_coin: cs2['ccFilled'] += 1
+                        cs2['denomRegTotal']['CC'] = cs2['denomRegTotal'].get('CC', 0) + 1
+                        if has_coin: cs2['denomRegFilled']['CC'] = cs2['denomRegFilled'].get('CC', 0) + 1
+                    else:
+                        cs2['regTotal'] += 1
+                        if has_coin: cs2['regFilled'] += 1
+                        rd = _reg_denom.setdefault(dl, {'filled':0,'total':0})
+                        rd['total'] += 1
+                        if has_coin: rd['filled'] += 1
+                        cs2['denomRegTotal'][dl] = cs2['denomRegTotal'].get(dl, 0) + 1
+                        if has_coin: cs2['denomRegFilled'][dl] = cs2['denomRegFilled'].get(dl, 0) + 1
+                    if has_coin:
+                        cnt = len(COIN_RE.findall(val_str))
+                        _denom_counts[dl] += cnt
+                        cs = _country_stats.setdefault(ckey, {'denom':{},'totalCents':0})
+                        cs['denom'][dl] = cs['denom'].get(dl,0)+cnt
+                        cs['totalCents'] += cnt*_denom_val_cents[dl]
+
+    _total_cents = sum(_denom_counts[d] * _denom_val_cents[d] for d in _denom_counts)
+    _global_cell = {'regFilled':0,'regTotal':0,'ccFilled':0,'ccTotal':0,'nifcFilled':0,'nifcTotal':0}
+    for cs2 in _country_cell_stats.values():
+        for k in _global_cell:
+            _global_cell[k] += cs2.get(k, 0)
+    for ckey, csdata in _country_cell_stats.items():
+        _country_stats.setdefault(ckey, {}).update(csdata)
+    return {
+        'denom_counts': _denom_counts, 'country_cell_stats': _country_cell_stats,
+        'country_stats': _country_stats, 'reg_denom': _reg_denom,
+        'nifc_denom': _nifc_denom, 'global_cell': _global_cell,
+        'total_cents': _total_cents,
+        'denom_val_cents': _denom_val_cents,
+    }
+
+def generate_html(mint_arg='', layout=''):
+    global COINS, COINS_MINT, MINTAGE, CC_NAMES, IMAGE_LINKS_MINT, IMAGE_LINKS
+    _js_hash = ''
+    try:
+        with open(os.path.join(app.static_folder, 'app.js'), 'rb') as _f:
+            _js_hash = hashlib.md5(_f.read()).hexdigest()[:8]
+    except: pass
+    split_germany = layout == 'split'
+    segments = compute_segments()
+    _S = _compute_all_stats(mint_arg)
+    _denom_counts = _S['denom_counts']
+    _country_cell_stats = _S['country_cell_stats']
+    _country_stats = _S['country_stats']
+    _reg_denom = _S['reg_denom']
+    _nifc_denom = _S['nifc_denom']
+    _global_cell = _S['global_cell']
+    _total_cents = _S['total_cents']
+    _denom_val_cents = _S['denom_val_cents']
+
+    _total_str = f'{_total_cents / 100:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+    _reg_pct = int(_global_cell["regFilled"] / _global_cell["regTotal"] * 100) if _global_cell["regTotal"] else 0
+    _cc_pct = int(_global_cell["ccFilled"] / _global_cell["ccTotal"] * 100) if _global_cell["ccTotal"] else 0
+    _nifc_pct = int(_global_cell["nifcFilled"] / _global_cell["nifcTotal"] * 100) if _global_cell["nifcTotal"] else 0
+    _global_cell_html = (
+        f'<div class="country-popup-badge country-popup-badge-reg">'
+        f'<div class="country-popup-badge-label">Regul\u00e4r</div>'
+        f'<div class="country-popup-badge-num">{_global_cell["regFilled"]}/{_global_cell["regTotal"]}</div>'
+        f'<div class="country-popup-badge-pct">{_reg_pct}%</div></div>'
+        f'<div class="country-popup-badge country-popup-badge-cc">'
+        f'<div class="country-popup-badge-label">CC</div>'
+        f'<div class="country-popup-badge-num">{_global_cell["ccFilled"]}/{_global_cell["ccTotal"]}</div>'
+        f'<div class="country-popup-badge-pct">{_cc_pct}%</div></div>'
+        f'<div class="country-popup-badge country-popup-badge-nifc">'
+        f'<div class="country-popup-badge-label">NIFC</div>'
+        f'<div class="country-popup-badge-num">{_global_cell["nifcFilled"]}/{_global_cell["nifcTotal"]}</div>'
+        f'<div class="country-popup-badge-pct">{_nifc_pct}%</div></div>'
+    )
+    _denom_order = ['1c', '2c', '5c', '10c', '20c', '50c', '1\u20ac', '2\u20ac', 'CC']
+    _total_miss_reg = 0
+    _total_miss_nifc = 0
+    _breakdown_rows = ''
+    for d in _denom_order:
+        c = _denom_counts[d]
+        rd = _reg_denom.get(d, {})
+        nd = _nifc_denom.get(d, {})
+        _miss_reg = rd.get('total', 0) - rd.get('filled', 0) if d != 'CC' else (_global_cell['ccTotal'] - _global_cell['ccFilled'])
+        _miss_nifc = nd.get('total', 0) - nd.get('filled', 0)
+        if c == 0 and not _miss_reg and not _miss_nifc:
+            continue
+        _v = c * _denom_val_cents[d]
+        _vs = f'{_v / 100:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+        _cls = ' class="country-popup-cc"' if d == 'CC' else ''
+        _breakdown_rows += f'<tr{_cls}><td>{d}</td><td>{c}</td><td style="text-align:center"><span style="color:#c00">{_miss_reg}</span></td><td style="text-align:center"><span style="color:#c00">{_miss_nifc}</span></td><td>\u20ac{_vs}</td></tr>\n'
+        _total_miss_reg += _miss_reg
+        _total_miss_nifc += _miss_nifc
+
+    _col_widths = {
+        'A':5.5, 'B':3.75, 'C':3.5400390625, 'D':3.5375, 'E':3.5375, 'F':3.5375, 'G':3.5375, 'H':3.5375, 'I':3.5375,
+        'J':0.6640625, 'K':3.5400390625, 'L':3.5375, 'M':3.5375, 'N':5.6640625, 'O':5.1640625,
+        'P':3.5400390625, 'Q':3.5375, 'R':3.5375, 'S':3.75, 'T':3.5375, 'U':3.5375, 'V':3.5375, 'W':3.5400390625,
+        'X':0.6640625, 'Y':3.5400390625, 'Z':3.5375, 'AA':3.5375, 'AB':5.6640625, 'AC':5.1640625,
+        'AD':3.5400390625, 'AE':3.5375, 'AF':3.5375, 'AG':3.5375, 'AH':3.5375, 'AI':3.5400390625, 'AJ':3.5400390625, 'AK':3.75,
+        'AL':0.6640625, 'AM':3.5400390625, 'AN':3.5375, 'AO':3.5375, 'AP':5.66,
+    }
+    total_w = sum(max(_col_widths[l] * 7.5, 6) for l in _col_widths)
 
     h = f'''<!DOCTYPE html>
 <html lang="de">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>MünzApp</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous"></script>
-
-<style>
-*{{box-sizing:border-box;margin:0;padding:0}}
-body{{font-family:Arial,Calibri,sans-serif;font-size:8pt;padding:10px}}
-table{{border-collapse:collapse;white-space:nowrap;table-layout:fixed;width:{total_w:.1f}px}}
-td{{border:1px solid #000;padding:1px 3px;text-align:center;vertical-align:middle;font-size:8pt;font-family:Arial;overflow:hidden;height:18px}}
-.c-country{{font-family:Calibri;font-size:10pt;font-weight:700;font-style:italic;padding:0;overflow:visible;height:auto}}
-.c-country-inner{{display:flex;align-items:center;width:100%;padding:2px 6px;box-sizing:border-box}}
-.c-name{{flex:1;text-align:center}}
-.c-left-btns{{display:flex;gap:3px;flex-shrink:0}}
-.c-country .info-btn{{flex-shrink:0;margin-left:0}}
-.c-right-placeholder{{display:inline-block;flex-shrink:0}}
-.gap td{{border:none!important}}
-.gap{{background:transparent;border:none!important}}
-.inner-gap{{background:transparent;border:none!important}}
-.add-year{{font-size:7pt;padding:1px 12px;cursor:pointer;margin-left:6px;border:1px solid #999;border-radius:3px;background:#eee;color:#333;user-select:none;vertical-align:middle}}
-.add-year:hover{{background:#ddd}}
-
-.msg{{font-size:8pt;padding:4px 8px;margin:4px 0;border-radius:3px;display:none}}
-.msg-ok{{background:#d4edda;color:#155724}}
-.msg-err{{background:#f8d7da;color:#721c24}}
-.undo-btn{{font-size:8pt;padding:4px 12px;cursor:pointer;border:1px solid #999;border-radius:3px;background:#fff3cd;color:#856404;user-select:none;margin-bottom:6px;display:inline-block}}
-.undo-btn:hover{{background:#ffe8a1}}
-.undo-btn:disabled{{opacity:0.4;cursor:default}}
-.edit-btn{{font-size:8pt;padding:4px 12px;cursor:pointer;border:1px solid #999;border-radius:3px;background:#e8f0fe;color:#1a73e8;user-select:none;margin-bottom:6px;display:inline-block;margin-left:6px}}
-.edit-btn:hover{{background:#d2e3fc}}
-.edit-btn.active{{background:#1a73e8;color:#fff;border-color:#1a73e8}}
-.edit-country-btn{{font-size:7pt;padding:1px 12px;cursor:pointer;margin-left:3px;border:1px solid #999;border-radius:3px;background:#e8f0fe;color:#1a73e8;user-select:none;vertical-align:middle}}
-.edit-country-btn:hover{{background:#d2e3fc}}
-.edit-country-btn.active{{background:#1a73e8;color:#fff;border-color:#1a73e8}}
-
-.ctx-menu{{position:fixed;background:#fff;border:1px solid #888;border-radius:4px;box-shadow:2px 2px 8px rgba(0,0,0,0.2);padding:4px;z-index:999;display:none;font-size:8pt}}
-.ctx-item{{padding:3px 8px;cursor:pointer;border-radius:2px;white-space:nowrap;display:inline-block;margin:1px}}
-.ctx-item:hover{{outline:1px solid #666}}
-.ctx-swatch{{display:inline-block;width:10px;height:10px;border:1px solid #999;margin-right:4px;vertical-align:middle}}
-.ctx-highlight{{outline:2px solid #1a73e8;outline-offset:-1px}}
-.export-btn{{font-size:8pt;padding:4px 12px;cursor:pointer;border:1px solid #999;border-radius:3px;background:#fff;color:#333;user-select:none;margin-left:6px;display:inline-block}}
-.export-btn:hover{{background:#f0f0f0}}
-.info-btn{{font-size:7pt;padding:1px 12px;cursor:pointer;margin-left:3px;border:1px solid #999;border-radius:3px;background:#e8f0fe;color:#1a73e8;user-select:none;vertical-align:middle}}
-.info-btn:hover{{background:#d2e3fc}}
-.info-btn.active{{background:#1a73e8;color:#fff;border-color:#1a73e8}}
-.info-modal{{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:2px solid #1a73e8;border-radius:6px;padding:16px;z-index:1000;font-size:9pt;min-width:280px;box-shadow:0 4px 20px rgba(0,0,0,0.3);display:none}}
-.info-modal h3{{margin:0 0 8px 0;font-size:10pt;color:#1a73e8}}
-.info-modal label{{display:block;margin:4px 0;font-size:8pt}}
-.info-modal input{{width:100%;box-sizing:border-box;padding:3px 5px;font-size:8pt;border:1px solid #999;border-radius:3px}}
-.info-modal a{{color:#1a73e8}}
-.info-modal .close-btn{{float:right;cursor:pointer;font-size:10pt;font-weight:700;color:#666;border:none;background:none;padding:0 4px}}
-.info-modal .close-btn:hover{{color:#000}}
-.coin-entry{{font-size:8pt;margin:3px 0;padding:4px 7px;background:#f5f7ff;border-radius:3px;border-left:3px solid #1a73e8}}
-.coin-entry-quality{{font-weight:bold;color:#1a1a1a}}
-.coin-entry-source{{color:#555}}
-.info-modal-overlay{{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:999;display:none}}
-.c-stats{{font-size:7pt;font-weight:400;font-style:normal;color:#333;opacity:0.85;margin-left:6px}}
-.legend-btn{{font-size:8pt;padding:4px 12px;cursor:pointer;border:1px solid #999;border-radius:3px;background:#fff;color:#333;user-select:none;margin-left:6px;display:inline-block}}
-.legend-btn:hover{{background:#f0f0f0}}
-.legend-btn.active{{background:#1a73e8;color:#fff;border-color:#1a73e8}}
-.missing-btn{{font-size:8pt;padding:4px 12px;cursor:pointer;border:1px solid #999;border-radius:3px;background:#fff;color:#333;user-select:none;margin-left:6px;display:inline-block}}
-.missing-btn:hover{{background:#f0f0f0}}
-.missing-btn.active{{background:#e53935;color:#fff;border-color:#e53935}}
-.legend-panel{{font-size:8pt;background:#f9f9f9;border:1px solid #ccc;border-radius:4px;padding:10px 14px;margin-bottom:8px;display:flex;gap:28px;flex-wrap:wrap}}
-.legend-col h4{{font-size:8.5pt;margin-bottom:4px;color:#1a73e8}}
-.legend-row{{margin:2px 0;display:flex;align-items:center;gap:6px;white-space:normal;max-width:230px}}
-.legend-code{{display:inline-block;min-width:16px;text-align:center;font-weight:bold;background:#fff;border:1px solid #999;border-radius:3px;padding:0 4px;flex-shrink:0}}
-.legend-swatch{{display:inline-block;width:12px;height:12px;border:1px solid #999;flex-shrink:0}}
-body.missing-mode td.cell-has{{opacity:0.2}}
-body.missing-mode td.cell-missing{{background:#ffe0e0!important;outline:2px solid #e53935;outline-offset:-2px}}
-.value-picker{{position:fixed;background:#fff;border:1px solid #888;border-radius:4px;box-shadow:2px 2px 10px rgba(0,0,0,0.25);padding:10px;z-index:1001;display:none;font-size:8pt;width:230px}}
-.vp-title{{font-weight:bold;margin-bottom:6px;color:#1a73e8}}
-.vp-entries{{max-height:120px;overflow-y:auto;margin-bottom:6px}}
-.vp-entry{{background:#f5f7ff;border-left:3px solid #1a73e8;border-radius:3px;padding:3px 6px;margin:2px 0;position:relative;padding-right:20px}}
-.vp-entry-source{{color:#555}}
-.vp-entry-del{{position:absolute;right:4px;top:2px;cursor:pointer;color:#c00;font-weight:bold}}
-.vp-empty{{color:#999;font-style:italic;padding:4px 0}}
-.vp-quality-row,.vp-source-row{{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}}
-.vp-btn{{border:1px solid #999;border-radius:3px;padding:2px 6px;cursor:pointer;background:#f0f0f0}}
-.vp-btn:hover{{background:#e0e0e0}}
-.vp-btn.vp-q{{background:#e8f0fe}}
-.vp-btn.vp-s{{background:#fff3cd}}
-.vp-clear{{cursor:pointer;color:#c00;text-decoration:underline;margin-right:12px;font-size:8pt}}
-.vp-close{{cursor:pointer;color:#1a73e8;font-weight:bold;font-size:8pt}}
-</style>
+<title>M\u00fcnzApp</title>
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<div id="msg" class="msg"></div>
-<div style="margin-bottom:6px">
-<span class="undo-btn" id="undoBtn">↶ Letzte Aktion rückgängig</span>
-<span class="export-btn" id="exportPdfBtn">📄 PDF</span>
-<span class="export-btn" id="exportXlsxBtn">📊 Excel</span>
-<span class="legend-btn" id="legendBtn">❔ Legende</span>
-<span class="missing-btn" id="missingBtn">🔍 Fehlende anzeigen</span>
+<div id="stickyHeader"><div style="margin-bottom:6px">
+<span class="undo-btn" id="undoBtn">\u21b6 Letzte Aktion r\u00fcckg\u00e4ngig</span>
+<span class="redo-btn" id="redoBtn">\u21b7 Wiederholen</span>
+<span class="export-btn" id="exportPdfBtn">\U0001f5a8\ufe0f PDF</span>
+<span class="export-btn" id="exportXlsxBtn">\U0001f4ca Excel</span>
+<span class="data-wrap" style="position:relative;display:inline-block;margin-left:6px">
+<span class="export-btn" id="dataBtn">\U0001f4e4 Daten \u25be</span>
+<div class="data-dropdown" id="dataDropdown" style="display:none">
+  <span class="data-dropdown-item" id="dropdownExport">\U0001f4e4 Exportieren</span>
+  <span class="data-dropdown-item" id="dropdownImport">\U0001f4e5 Importieren</span>
+</div>
+</span>
+<span class="edit-btn" id="editBtn">\U0001f4dd Bearbeiten</span>
+<span id="editHint" class="edit-hint"></span>
+<span class="export-btn" id="sumBtn">Info</span>
+<span class="data-wrap" style="position:relative;display:inline-block;margin-left:6px">
+<span class="export-btn" id="moreBtn">Mehr \u25be</span>
+<div class="data-dropdown" id="moreDropdown" style="display:none">
+  <span class="data-dropdown-item" id="morePrintLayout">\U0001f4d6 Print-Layout</span>
+  <span class="data-dropdown-item" id="moreLegend">\u2753 Legende</span>
+  <span class="data-dropdown-item" id="moreMissing">\U0001f50d Fehlende anzeigen</span>
+  <span class="data-dropdown-item" id="moreSync">\U0001f504 Auflagezahlen syncen</span>
+  <span class="data-dropdown-item" id="moreCountries">\u270f L\u00e4nder</span>
+</div>
+</span>
+<span id="msg" class="msg"></span>
+<div id="sumBreakdown" class="sum-breakdown" style="display:none">
+  <div class="sum-breakdown-body">
+    <table>
+      <tr><th>Nominal</th><th>Anzahl</th><th style="color:#c00">\u2715 reg.</th><th style="color:#c00">\u2715 NIFC</th><th>Wert</th></tr>
+      {_breakdown_rows}
+      <tr class="sum-breakdown-total"><td>Gesamt</td><td></td><td style="text-align:center"><span style="color:#c00">{_total_miss_reg}</span></td><td style="text-align:center"><span style="color:#c00">{_total_miss_nifc}</span></td><td>\u20ac{_total_str}</td></tr>
+    </table>
+    <div id="sumBreakdownStats" class="sum-breakdown-badges">{_global_cell_html}</div>
+  </div>
+</div>
 </div>
 <div id="legendPanel" class="legend-panel" style="display:none">
   <div class="legend-col">
-    <h4>Qualität</h4>
-    <div class="legend-row"><span class="legend-code">✔</span> Qualität noch nicht bestimmt</div>
+    <h4>Qualit\u00e4t</h4>
+    <div class="legend-row"><span class="legend-code">\u2714</span> Qualit\u00e4t noch nicht bestimmt</div>
     <div class="legend-row"><span class="legend-code">0</span> UNC</div>
-    <div class="legend-row"><span class="legend-code">1</span> Gute / sehr gute Qualität</div>
-    <div class="legend-row"><span class="legend-code">3</span> Schlechte Qualität</div>
-    <div class="legend-row"><span class="legend-code">5</span> Sehr schlechte Qualität</div>
+    <div class="legend-row"><span class="legend-code">1</span> Gute / sehr gute Qualit\u00e4t</div>
+    <div class="legend-row"><span class="legend-code">3</span> Schlechte Qualit\u00e4t</div>
+    <div class="legend-row"><span class="legend-code">5</span> Sehr schlechte Qualit\u00e4t</div>
   </div>
   <div class="legend-col">
     <h4>Herkunft (Suffix)</h4>
     <div class="legend-row"><span class="legend-code">&ndash;</span> Selbst gesammelt</div>
-    <div class="legend-row"><span class="legend-code">° / o</span> Aus der Gruppe</div>
+    <div class="legend-row"><span class="legend-code">\u00b0 / o</span> Aus der Gruppe</div>
     <div class="legend-row"><span class="legend-code">*</span> Gekauft</div>
-    <div class="legend-row" style="color:#888">Mehrere Codes in einer Zelle = mehrere Münzen (z.B. "50*")</div>
+    <div class="legend-row" style="color:#888">Mehrere Codes in einer Zelle = mehrere M\u00fcnzen (z.B. 5\u00b00*)</div>
   </div>
   <div class="legend-col">
-    <h4>Zellfarben (Auflagegröße)</h4>
+    <h4>Zellfarben (Auflagegr\u00f6\u00dfe)</h4>
     <div class="legend-row"><span class="legend-swatch" style="background:#C5DEB5"></span> &gt; 5 Mio.</div>
     <div class="legend-row"><span class="legend-swatch" style="background:#8EAADB"></span> 2&ndash;5 Mio.</div>
     <div class="legend-row"><span class="legend-swatch" style="background:#FF8C42"></span> 1&ndash;2 Mio.</div>
     <div class="legend-row"><span class="legend-swatch" style="background:#FFE598"></span> &le; 1 Mio.</div>
-    <div class="legend-row"><span class="legend-swatch" style="background:#FFC7CE"></span> NIFC / nie geprüft / ✕ nie ausgegeben</div>
+    <div class="legend-row"><span class="legend-swatch" style="background:#FFC7CE"></span> NIFC / nie gepr\u00fcft / \u2715 nie ausgegeben</div>
   </div>
   <div class="legend-col">
     <h4>Bedienung</h4>
-    <div class="legend-row">Rechtsklick auf eine Münzzelle &rarr; Schnellauswahl für Qualität &amp; Herkunft</div>
-    <div class="legend-row">✏️ am Land &rarr; Zelltyp/Farbe setzen</div>
-    <div class="legend-row">ℹ️ am Land &rarr; Münzdetails &amp; Bild ansehen</div>
+    <div class="legend-row">Klick auf M\u00fcnzzelle &rarr; M\u00fcnze verwalten (Qualit\u00e4t, Quelle, Bild)</div>
+    <div class="legend-row">\u2139-L\u00e4nderbutton &rarr; L\u00e4nderstatistik (Anzahl, Fehlende, Wert)</div>
+    <div class="legend-row">\u2139-Button oben &rarr; Gesamtstatistik \u00fcber alle L\u00e4nder</div>
+    <div class="legend-row">\U0001f50d Fehlende &rarr; rot markiert nicht besessene M\u00fcnzen</div>
+    <div class="legend-row">\U0001f504 Auflagezahlen syncen &rarr; l\u00e4dt Auflagezahlen aus Google Sheet</div>
+    <div class="legend-row">\U0001f5a8\ufe0f PDF &rarr; druckt die Tabelle (ohne Bedienelemente)</div>
+    <div class="legend-row">\U0001f4ca Excel &rarr; exportiert als Excel-Datei</div>
+    <div class="legend-row">\U0001f4e4 Daten \u25be Exportieren &rarr; sichert alle Daten als .txt</div>
+    <div class="legend-row">\U0001f4e4 Daten \u25be Importieren &rarr; stellt gesicherte Daten wieder her</div>
+    <div class="legend-row">\u21b6 / \u21b7 &rarr; \u00c4nderungen r\u00fcckg\u00e4ngig machen / wiederholen</div>
+    <div class="legend-row">\U0001f4dd Bearbeiten &rarr; Modus: Einfachklick = Popup, Doppelklick = Quelle w\u00e4hlen</div>
+    <div class="legend-row">Im Bearbeiten-Modus: Zellen markieren (Drag) &rarr; Popup mit Farbauswahl + Texteingabe</div>
   </div>
-</div>
-<div class="ctx-menu" id="ctxMenu"></div>
-<div class="value-picker" id="valuePicker">
-  <div class="vp-title">Münzen für dieses Feld</div>
-  <div id="vpEntries" class="vp-entries"></div>
-  <div class="vp-quality-row">
-    <span class="vp-btn vp-q" data-q="✔">✔</span>
-    <span class="vp-btn vp-q" data-q="0">0 UNC</span>
-    <span class="vp-btn vp-q" data-q="1">1 gut</span>
-    <span class="vp-btn vp-q" data-q="3">3 schl.</span>
-    <span class="vp-btn vp-q" data-q="5">5 sehr schl.</span>
-  </div>
-  <div class="vp-source-row" id="vpSourceRow" style="display:none">
-    <span class="vp-btn vp-s" data-s="">Selbst</span>
-    <span class="vp-btn vp-s" data-s="°">Gruppe</span>
-    <span class="vp-btn vp-s" data-s="*">Gekauft</span>
-  </div>
-  <div style="margin-top:6px;text-align:right">
-    <span class="vp-clear" id="vpClear">Leeren</span>
-    <span class="vp-close" id="vpCloseBtn">Fertig</span>
+  <div class="legend-col" style="flex:0 0 100%;max-width:100%">
+    <h4>\u00dcber die App</h4>
+    <div class="legend-row" style="max-width:100%">Diese App verwaltet eine pers\u00f6nliche Eurom\u00fcnzen-Sammlung. Die Daten liegen als <code>data.json</code> auf dem Server.</div>
+    <div class="legend-row" style="max-width:100%"><a href="https://docs.google.com/spreadsheets/d/1lGbzcTmMfzQjE-7ENMhrSMpMlu859fYCAqH8juDhb40" target="_blank" rel="noopener">Google Sheet &nearr;</a></div>
+    <div class="legend-row" style="max-width:100%"><a href="https://www.eurocollection.co.uk/Euros" target="_blank" rel="noopener">M\u00fcnzbilder (eurocollection.co.uk) &nearr;</a></div>
   </div>
 </div>
 <div class="info-modal-overlay" id="infoOverlay"></div>
 <div class="info-modal" id="infoModal">
   <button class="close-btn" id="infoClose">&times;</button>
-  <h3 id="infoTitle">Münze</h3>
-  <img id="infoCoinImg" style="display:none;max-width:50%;border:1px solid #ddd;border-radius:4px;margin:6px 0">
-  <label>Auflagezahl:</label>
-  <input type="text" id="infoMintage" placeholder="z.B. 378.400.000">
-  <div style="margin-top:6px">
-    <a href="#" id="infoLinkBtn" target="_blank" style="font-size:9pt;font-weight:bold;color:#1a73e8">Bild öffnen &nearr;</a>
+
+  <div class="info-header">
+    <div class="info-header-img">
+      <a id="infoCoinLink" href="#" target="_blank" style="display:contents">
+        <img id="infoCoinImg" src="" style="display:none">
+      </a>
+    </div>
+    <div class="info-header-text">
+      <h3 id="infoTitle">M\u00fcnze</h3>
+      <div id="infoCCName" class="info-cc-name" style="display:none">
+        <span style="color:#888">M\u00fcnzname:</span> <strong id="infoCCNameText"></strong>
+      </div>
+      <div id="infoCoinEntries" style="margin-top:6px"></div>
+    </div>
   </div>
-  <div style="margin-top:4px">
-    <span id="infoShowLinkToggle" style="font-size:7pt;cursor:pointer;color:#666;text-decoration:underline">Link anzeigen</span>
+
+  <div id="infoURLEditRow" style="display:none;margin:8px 0;text-align:center">
+    <span style="font-size:8pt;cursor:pointer;color:#1a73e8;text-decoration:underline;user-select:none" id="infoURLEditBtn">\u270f Bild-URL bearbeiten</span>
   </div>
-  <div id="infoLinkWrap" style="display:none;margin-top:4px">
-    <input type="text" id="infoLink" placeholder="https://...">
+  <div id="infoURLInputRow" style="display:none;margin:8px 0">
+    <input type="text" id="infoURLInput" placeholder="Bild-URL (z.B. https://...)" style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:9pt;border:1px solid #ccc;border-radius:5px">
   </div>
-  <div id="infoCCName" style="display:none;margin-top:6px;font-size:8pt;background:#fff8e1;border-left:3px solid #f9a825;border-radius:3px;padding:4px 7px">
-    <span style="color:#888">Münzname:</span> <strong id="infoCCNameText"></strong>
+
+  <div id="infoCoinAdd" style="display:none">
+      <div class="info-add-label">Neue M\u00fcnze hinzuf\u00fcgen:</div>
+      <div id="infoCoinQualityRow" class="info-btn-row">
+        <span class="info-q-btn" data-q="\u2714">\u2714</span>
+        <span class="info-q-btn" data-q="0">0</span>
+        <span class="info-q-btn" data-q="1">1</span>
+        <span class="info-q-btn" data-q="3">3</span>
+        <span class="info-q-btn" data-q="5">5</span>
+        <span class="info-q-btn info-custom-btn" id="infoCustomBtn">\u270f\ufe0f</span>
+      </div>
+      <div id="infoCoinSourceRow" class="info-btn-row" style="display:none">
+        <span class="info-s-btn" data-s="">Selbst</span>
+        <span class="info-s-btn" data-s="\u00b0">Gruppe</span>
+        <span class="info-s-btn" data-s="*">Gekauft</span>
+      </div>
+      <div id="infoCustomInputRow" class="info-custom-row" style="display:none">
+        <input type="text" id="infoCustomInput" placeholder="Eigener Text (z.B. Proof, Fehlpr\u00e4gung...)" maxlength="50">
+        <span class="info-custom-add" id="infoCustomAddBtn">+</span>
+      </div>
+    </div>
+
+  <div class="info-section">
+    <div class="info-section-title">Auflage &amp; Farbe</div>
+    <label>Auflagezahl</label>
+    <input type="text" id="infoMintage" placeholder="z.B. 378.400.000">
+    <div style="margin-top:8px">
+      <div id="infoColorPicker" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+    </div>
   </div>
-  <div id="infoCoinDetails" style="display:none;margin-top:8px;border-top:1px solid #e0e0e0;padding-top:8px">
-    <div style="font-size:8pt;font-weight:bold;color:#555;margin-bottom:4px">Münzdetails</div>
-    <div id="infoCoinEntries"></div>
-  </div>
-  <div id="infoColorSection" style="margin-top:8px;border-top:1px solid #e0e0e0;padding-top:8px">
-    <div style="font-size:8pt;font-weight:bold;color:#555;margin-bottom:4px">Zellfarbe</div>
-    <div id="infoColorPicker" style="display:flex;flex-wrap:wrap;gap:4px"></div>
-  </div>
-  <div style="margin-top:8px;text-align:right">
-    <button id="infoSave" style="font-size:8pt;padding:4px 12px;cursor:pointer;border:1px solid #1a73e8;border-radius:3px;background:#1a73e8;color:#fff">Speichern</button>
+
+  <button id="infoSave">Speichern</button>
+</div>
+<div class="sync-modal-overlay" id="syncOverlay"></div>
+<div class="sync-modal" id="syncModal">
+  <div class="sync-modal-title">Auflagezahlen syncen?</div>
+  <p style="margin:6px 0">Die aktuellen Auflagezahlen werden aus der Google-Tabelle geladen:</p>
+  <p style="margin:6px 0;word-break:break-all"><a href="https://docs.google.com/spreadsheets/d/1lGbzcTmMfzQjE-7ENMhrSMpMlu859fYCAqH8juDhb40" target="_blank" rel="noopener">Google Sheet \u00f6ffnen &nearr;</a></p>
+  <p style="margin:6px 0;">Manuell bearbeitete Zahlen werden nicht \u00fcberschrieben.</p>
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <button class="sync-modal-btn sync-modal-btn-cancel" id="syncCancel">Abbrechen</button>
+    <button class="sync-modal-btn sync-modal-btn-confirm" id="syncConfirm">Sync starten</button>
   </div>
 </div>
-<table>
+<div class="flag-bar">
 '''
-
-    for cl in cols_letters:
-        px = max(col_widths[cl] * 7.5, 6)
+    for c in sorted(COUNTRIES, key=lambda c: c.get('display_order', 0)):
+        flag = c.get('flag', '')
+        if not flag:
+            continue
+        _safe = c['name'].lower().replace('/','_').replace(' ','_')
+        h += f'<span class="flag-btn" data-target="c-{c["block"]}-{_safe}" title="{htmlmod.escape(c["name"])}">{flag}</span>\n'
+    h += '''</div>
+</div>
+<div id="reorderModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:2px solid #1a73e8;border-radius:8px;padding:16px;z-index:1000;font-size:9pt;width:min(92vw,450px);max-height:80vh;overflow-y:auto;box-shadow:0 4px 24px rgba(0,0,0,0.2)">
+  <span id="rmClose" style="position:absolute;top:4px;right:8px;border:none;background:none;font-size:14pt;cursor:pointer">&times;</span>
+  <h3 style="margin:0 0 10px;font-size:11pt;color:#1a73e8">L\u00e4nder verwalten</h3>
+  <div id="rmList"></div>
+  <hr style="border:none;border-top:1px solid #eee;margin:10px 0">
+  <div style="display:flex;gap:4px;flex-wrap:wrap">
+    <input id="acName" placeholder="Name" style="flex:1;min-width:80px;padding:4px 6px;font-size:9pt;border:1px solid #ccc;border-radius:3px">
+    <select id="acBlock" style="padding:4px;font-size:9pt;border:1px solid #ccc;border-radius:3px"><option value="A">1.</option><option value="O">2.</option><option value="AC">3.</option></select>
+    <input id="acFlag" placeholder="\U0001f1ea\U0001f1fa" style="width:40px;padding:4px;font-size:9pt;border:1px solid #ccc;border-radius:3px;text-align:center">
+    <input id="acImageName" placeholder="Bild" style="flex:1;min-width:60px;padding:4px 6px;font-size:9pt;border:1px solid #ccc;border-radius:3px">
+    <input id="acMints" placeholder="M\u00fcnzst\u00e4tten" style="flex:1;min-width:60px;padding:4px 6px;font-size:9pt;border:1px solid #ccc;border-radius:3px">
+    <button id="acSave" style="padding:4px 10px;font-size:9pt;border:1px solid #1a73e8;border-radius:3px;background:#1a73e8;color:#fff;cursor:pointer">+</button>
+  </div>
+</div>
+</div>
+<table style="width:''' + str(round(total_w, 1)) + '''px">
+'''
+    for cl in COLS_ORDER:
+        px = max(_col_widths.get(cl, 3.5) * 7.5, 6)
         h += f'<col style="width:{px:.1f}px;min-width:{px:.1f}px">\n'
 
-    # Precompute: for each segment, the global last real data row across all blocks
-    seg_last = {}  # seg_start -> global last data row
+    # Render rows
+    _last_dr_blk = {}
+    def block_colspan(bl):
+        return len(make_block_ordered_cols(bl))
+
     for seg in segments:
-        s = seg['start']
-        if seg['last_data']:
-            seg_last[s] = max(seg['last_data'].values())
-        else:
-            seg_last[s] = s + 1
+        entries = seg['entries']
+        max_years = seg['max_years']
+        seg_start = seg['start']
 
-    # Precompute row -> country name per block
-    row_to_country = {}
-    for _bl in ['A', 'O', 'AC']:
-        for _i, (_cr, _cname) in enumerate(block_countries[_bl]):
-            _next = block_countries[_bl][_i+1][0] if _i+1 < len(block_countries[_bl]) else MAX_ROW + 1
-            for _r in range(_cr, _next):
-                row_to_country[(_r, _bl)] = _cname
+        # Determine preceding gap check (check if any block's last data row was prev row)
+        _need_gap = False
+        for bl in ('A', 'O', 'AC'):
+            if _last_dr_blk.get(bl, 0) == seg_start - 1:
+                found_bl = [e for e in entries if e['block'] == bl]
+                if found_bl:
+                    _need_gap = True
+                    break
+        if _need_gap:
+            h += '<tr>'
+            for _ci in range(len(COLS_ORDER)):
+                h += '<td class="gap">&nbsp;</td>'
+            h += '</tr>\n'
 
-    # Precompute per-country completion stats (den/cc cells, excluding "never issued" x-type)
-    country_stats = {}
-    for _bl in ['A', 'O', 'AC']:
-        for _cl in cols_letters:
-            if col_to_block.get(_cl) != _bl or col_types.get(_cl) not in ('den', 'cc'):
-                continue
-            for _r in range(1, MAX_ROW + 1):
-                if block_row_type.get(_bl, {}).get(_r) != 'data':
-                    continue
-                _yref = YEAR_COL[_bl] + str(_r)
-                if _yref not in data:
-                    continue
-                _ref = _cl + str(_r)
-                if cell_types.get(_ref) == 'x':
-                    continue
-                _cname = row_to_country.get((_r, _bl))
-                if not _cname:
-                    continue
-                _key = (_bl, _cname)
-                _cst = country_stats.setdefault(_key, {'filled': 0, 'total': 0})
-                _cst['total'] += 1
-                if data.get(_ref, '').strip():
-                    _cst['filled'] += 1
-
-    # Render base rows
-    for r in range(1, MAX_ROW + 1):
+        # Country header row (rowspan 2 to cover country + col header)
         h += '<tr>'
-        for ci, cl in enumerate(cols_letters):
-            ref = cl + str(r)
-            if ref in merges and merges[ref].get('skip'):
-                continue
-
-            cs, rs, val = 1, 1, data.get(ref, '')
-            if ref in merges and not merges[ref].get('skip'):
-                cs = merges[ref]['cs']; rs = merges[ref]['rs']
-
-            cls = ''
-            bg = None
-            fc = None
-            bl = col_to_block[cl]
-            rtype = ''
-            editable = False
-            btn_btn = ''
-            ct = None
-            if bl and (col_types.get(cl) in ('den', 'cc') or cl == YEAR_COL.get(bl, '')):
-                ct = cell_types.get(ref)
-
-            if bl and r in block_row_type.get(bl, {}):
-                rtype = block_row_type[bl][r]
-                if rtype == 'country':
-                    cls = 'c-country'
-                    bg = 'FF543E'
-                    fc = '000000'
-                    if (r, bl) in COUNTRY_HEADERS:
-                        val = COUNTRY_HEADERS[(r, bl)]
-                        name = COUNTRY_HEADERS[(r, bl)]
-                        if name:
-                            if cl == YEAR_COL[bl]:
-                                _left = f'<span class="c-left-btns"><span class="add-year" data-block="{bl}" data-country="{htmlmod.escape(name)}">+</span></span>'
-                                _right = f'<span class="info-btn" data-country="{htmlmod.escape(name)}">ℹ️</span>'
-                                _cst = country_stats.get((bl, name))
-                                if _cst and _cst['total']:
-                                    _pct = round(100 * _cst['filled'] / _cst['total'])
-                                    _stats_html = f'<span class="c-stats">{_cst["filled"]}/{_cst["total"]} &middot; {_pct}%</span>'
-                                else:
-                                    _stats_html = ''
-                                btn_btn = f'<div class="c-country-inner">{_left}<span class="c-name">{htmlmod.escape(name)}{_stats_html}</span>{_right}</div>'
-                        else:
-                            btn_btn = ''
-                    else:
-                        btn_btn = ''
-                elif rtype == 'colheader':
-                    if val in ('1', '2'):
-                        val += ' €'
-                elif rtype == 'data':
-                    bg = fills.get(ref)
-
-            if bl and rtype == 'data':
-                year_ref = YEAR_COL[bl] + str(r)
-                if year_ref not in data:
-                    cls = 'gap'
-                    bg = None
-                    fc = None
-                    val = ''
-
-            if col_types[cl] in ('gap', 'inner-gap'):
-                cls = col_types[cl]
-                bg = None
-                fc = None
-
-            if rtype == 'data' and cls != 'gap' and col_types.get(cl) in ('den', 'cc'):
-                editable = True
-
-            # x-type cell: force value to ✕, never editable
-            if ct == 'x':
-                val = '✕'
-                editable = False
-
-            # Cell type override (user-set background)
-            cell_type_color_map = {
-                'green': 'C5DEB5', 'blue': '8EAADB', 'orange': 'FF8C42',
-                'yellow': 'FFE598', 'nifc': 'FFC7CE', 'x': 'FFC7CE',
-            }
-            if ct and ct in cell_type_color_map:
-                bg = cell_type_color_map[ct]
-
-            sty = ''
-            if ct == 'x':
-                sty = 'background:#FFC7CE;'
-            elif val and '✕' in val:
-                sty = 'background:#FFC7CE;'
-            elif bg:
-                sty += f'background:#{bg};'
-                if fc: sty += f'color:#{fc};'
-            elif not bg and ref in fills and col_types[cl] not in ('gap', 'inner-gap'):
-                sty += f'background:#{fills[ref]};'
-                if is_dark(fills[ref]): sty += 'color:#FFF;'
-
-            ev = htmlmod.escape(val) if val else ('&nbsp;' if cls in ('gap', 'inner-gap') else '')
-            if btn_btn:
-                ev = btn_btn
-            colspan = f' colspan="{cs}"' if cs > 1 else ''
-            rowspan = f' rowspan="{rs}"' if rs > 1 else ''
-            cc = f' class="{cls}"' if cls else ''
-            if editable or ct == 'x':
-                _cname = htmlmod.escape(row_to_country.get((r, bl), '')) if bl else ''
-                _bl2 = bl or ''
-                dr = f' data-ref="{ref}" data-country="{_cname}" data-block="{_bl2}"'
+        col_idx = 0
+        for bl in ('A', 'O', 'AC'):
+            found = [e for e in entries if e['block'] == bl]
+            bc = BLOCK_COLS[bl]
+            if found:
+                c = found[0]['country']
+                cname = c['name']
+                _id = f' id="c-{bl}-{cname.lower().replace("/","_").replace(" ","_")}"'
+                _left = f'<span class="c-left-btns"><span class="country-info" data-block="{bl}" data-country="{htmlmod.escape(cname)}">\u2139</span></span>'
+                ckey = bl + '|' + cname
+                cst = _country_stats.get(ckey)
+                _cst_json = htmlmod.escape(json.dumps(cst)) if cst else '{}'
+                _mints = c.get('mint_marks', [])
+                _mint_html = ''
+                if _mints and not (split_germany and cname == 'Deutschland'):
+                    _active_mint = mint_arg if mint_arg in _mints else _mints[0]
+                    _mint_html = '<span class="c-mints">' + ''.join(
+                        f'<a class="c-mint{" active" if m == _active_mint else ""}" data-mint="{m}" href="?mint={m}">{m}</a>'
+                        for m in _mints
+                    ) + '</span>'
+                _del_btn = f'<span class="c-del" data-country="{htmlmod.escape(cname)}" style="font-size:9pt;cursor:pointer;margin-left:4px;user-select:none;opacity:0.3;color:#c00;" title="Land l\u00f6schen">\u2715</span>'
+                btn = f'<div class="c-country-inner">{_left}<span class="c-name" data-key="{htmlmod.escape(ckey)}" data-stats=\'{_cst_json}\'>{htmlmod.escape(cname)}</span>{_mint_html}{_del_btn}</div>'
+                _cs = block_colspan(bl)
+                h += f'<td{_id} class="c-country" colspan="{_cs}" style="background:#FF543E;color:#000">{btn}</td>'
             else:
-                dr = ''
-            dct = f' data-ct="{ct}"' if ct else ''
-            xlocked = ' data-xlocked="1"' if ct == 'x' else ''
-            ss = f' style="{sty}"' if sty else ''
-            dm = ''
-            dl = ''
-            if ref in mintage_data:
-                dm = f' data-mintage="{htmlmod.escape(format_mintage_val(mintage_data[ref]))}"'
-            if ref in image_links:
-                dl = f' data-link="{htmlmod.escape(image_links[ref])}"'
-            dcn = f' data-cc-name="{htmlmod.escape(cc_coin_names[ref])}"' if ref in cc_coin_names else ''
-            h += f'<td{cc}{colspan}{rowspan}{ss}{dr}{dct}{xlocked}{dm}{dl}{dcn}>{ev}</td>'
+                _cs = block_colspan(bl)
+                h += f'<td class="gap" colspan="{_cs}">&nbsp;</td>'
+            # Gap columns
+            if bl == 'A':
+                h += f'<td class="gap" style="width:{max(_col_widths.get(GAP_COLS["A_O"],2)*7.5,6):.1f}px">&nbsp;</td>'
+            elif bl == 'O':
+                h += f'<td class="gap" style="width:{max(_col_widths.get(GAP_COLS["O_AC"],2)*7.5,6):.1f}px">&nbsp;</td>'
         h += '</tr>\n'
 
-        # Check if this row is the global last real data row of any segment
-        for seg in segments:
-            s = start_r = seg['start']
-            if seg_last.get(s) != r:
-                continue
-            # Collect all extension years from ALL blocks in this segment
-            all_ext = {}  # year -> [(block, country_name)]
-            for bl, cname in seg['entries']:
-                if not cname:
-                    continue
-                for ey in extensions.get(bl, {}).get(cname, []):
-                    all_ext.setdefault(ey, []).append((bl, cname))
-            if not all_ext:
-                continue
+        # Column header row
+        h += '<tr>'
+        for bl in ('A', 'O', 'AC'):
+            bc = BLOCK_COLS[bl]
+            found = [e for e in entries if e['block'] == bl]
+            if found:
+                for cl in make_block_ordered_cols(bl):
+                    ct = 'colheader'
+                    dl = DENOM_LABEL.get(cl, '')
+                    val = dl
+                    if val in ('1', '2'):
+                        val += ' \u20ac'
+                    cls = ''
+                    if cl == bc['year']:
+                        val = ''
+                        cls = 'year-connector'
+                    elif cl == bc['igap']:
+                        val = ''
+                        cls = 'inner-gap'
+                    h += f'<td class="{cls}" style="font-size:7pt;text-align:center;border:1px solid #000">{htmlmod.escape(val) if val else ""}</td>'
+            else:
+                for cl in make_block_ordered_cols(bl):
+                    h += '<td class="gap">&nbsp;</td>'
+            if bl == 'A':
+                h += '<td class="gap">&nbsp;</td>'
+            elif bl == 'O':
+                h += '<td class="gap">&nbsp;</td>'
+        h += '</tr>\n'
 
-            # Determine base ext row number (unique per segment)
-            seg_idx = next(i for i, (st, _) in enumerate(SEGMENTS) if st == s)
-            base_ext_row = EXT_OFFSET + s
-
-            for ext_idx, ey in enumerate(sorted(all_ext.keys(), key=lambda y: int(y) if y.isdigit() else y)):
-                ext_row = base_ext_row + ext_idx
-                # Build a map: block -> True if this block has this year
-                ext_blocks = set(bl for bl, _ in all_ext[ey])
-                h += '<tr>'
-                for ci2, cl2 in enumerate(cols_letters):
-                    bl2 = col_to_block[cl2]
-                    ct2 = col_types.get(cl2, '')
-                    if ct2 in ('gap', 'inner-gap'):
-                        h += f'<td class="{ct2}">&nbsp;</td>'
-                    elif bl2 and bl2 in ext_blocks:
-                        if cl2 == YEAR_COL[bl2]:
-                            h += f'<td>{htmlmod.escape(ey)}</td>'
-                        elif ct2 in ('den', 'cc'):
-                            ref2 = cl2 + str(ext_row)
-                            val2 = data.get(ref2, '')
-                            ev2 = htmlmod.escape(val2) if val2 else ''
-                            h += f'<td data-ref="{ref2}">{ev2}</td>'
+        # Data rows
+        for yr_idx in range(max_years):
+            h += '<tr>'
+            for bl in ('A', 'O', 'AC'):
+                found = [e for e in entries if e['block'] == bl]
+                bc = BLOCK_COLS[bl]
+                if found:
+                    c = found[0]['country']
+                    cname = c['name']
+                    mints = c.get('mint_marks', [])
+                    yrs = found[0]['years']
+                    for cl in make_block_ordered_cols(bl):
+                        if cl == bc['year']:
+                            yr_val = yrs[yr_idx] if yr_idx < len(yrs) else ''
+                            if yr_val:
+                                h += f'<td style="text-align:center;font-size:7pt;border:1px solid #000;background:#eee">{htmlmod.escape(yr_val)}</td>'
+                            else:
+                                h += '<td class="gap">&nbsp;</td>'
+                        elif cl == bc['igap']:
+                            h += '<td class="inner-gap">&nbsp;</td>'
                         else:
-                            h += '<td></td>'
-                    else:
+                            dk = make_denom_key(cl)
+                            yr_val = yrs[yr_idx] if yr_idx < len(yrs) else ''
+                            if not yr_val:
+                                h += '<td class="gap">&nbsp;</td>'
+                                continue
+                            if split_germany and cname == 'Deutschland':
+                                h += '<td class="gap">&nbsp;</td>'
+                                continue
+                            entry = get_coin(cname, yr_val, dk)
+                            mval = ''
+                            mct = ''
+                            if mints:
+                                mentry = get_coin(cname, yr_val, dk, mint_arg if mint_arg in mints else None)
+                                mval = coin_value(mentry)
+                                mct = coin_cell_type(mentry)
+                            val = mval if mval else coin_value(entry)
+                            ct = mct if mct else coin_cell_type(entry)
+                            ref = coin_key(cname, yr_val, dk)
+                            _ref_attr = ref
+                            _yr_attr = yr_val
+                            _denom_attr = dk
+                            _cname_attr = cname
+                            _bg = _compute_cell_color(cname, yr_val, dk, ct=ct)
+                            _sty = ''
+                            if ct == 'x':
+                                _sty = 'background:#FFC7CE;'
+                                val = '\u2715'
+                            elif val and '\u2715' in val:
+                                _sty = 'background:#FFC7CE;'
+                            elif _bg:
+                                _sty = f'background:#{_bg};'
+                            _ev = htmlmod.escape(val) if val else ''
+                            _editable = bool(dk)
+                            _ct_attr = ct or ''
+                            _xlocked = ' data-xlocked="1"' if ct == 'x' else ''
+                            _dct = f' data-ct="{ct}"' if ct else ''
+                            _mv = mintage_for(cname, yr_val, dk)
+                            _dm = f' data-mintage="{htmlmod.escape(format_mintage_val(_mv))}"' if _mv else ''
+                            _img = coin_image(entry)
+                            if not _img and mints:
+                                mentry = get_coin(cname, yr_val, dk, mint_arg if mint_arg in mints else None)
+                                _img = coin_image(mentry)
+                            _dl = ''
+                            if not _img:
+                                url = image_url_for(cname, yr_val, dk)
+                                if url:
+                                    _img = url
+                            _dl = f' data-link="{htmlmod.escape(_img)}"' if _img else ''
+                            # Mint-specific data attrs
+                            _dmint = ''
+                            if mints:
+                                mint_parts = []
+                                for mm in mints:
+                                    mm_v = mintage_for(cname, yr_val, dk, mm)
+                                    if mm_v:
+                                        mint_parts.append(f'data-mint-{mm}="{htmlmod.escape(format_mintage_val(mm_v))}"')
+                                    mm_img = get_coin(cname, yr_val, dk, mm)
+                                    mm_img_url = coin_image(mm_img)
+                                    if mm_img_url:
+                                        mint_parts.append(f'data-link-mint-{mm}="{htmlmod.escape(mm_img_url)}"')
+                                if mint_parts:
+                                    _dmint = ' ' + ' '.join(mint_parts)
+                            _ccn = CC_NAMES.get(ref, '')
+                            _dcn = f' data-cc-name="{htmlmod.escape(_ccn)}"' if _ccn else ''
+                            _dr = f' data-ref="{_ref_attr}" data-country="{htmlmod.escape(_cname_attr)}" data-block="{bl}" data-year="{_yr_attr}" data-denom="{_denom_attr}"'
+                            _fullsty = (_sty + ';' if _sty and not _sty.endswith(';') else _sty) + 'font-size:8pt;text-align:center;border:1px solid #000'
+                            h += f'<td{_dr}{_dct}{_xlocked}{_dm}{_dl}{_dmint}{_dcn} style="{_fullsty}">{_ev}</td>'
+                else:
+                    for cl in make_block_ordered_cols(bl):
                         h += '<td class="gap">&nbsp;</td>'
-                h += '</tr>\n'
+                if bl == 'A':
+                    h += '<td class="gap">&nbsp;</td>'
+                elif bl == 'O':
+                    h += '<td class="gap">&nbsp;</td>'
+            h += '</tr>\n'
 
-    h += '''</table>
-<script>
-(function() {
-  const msgDiv = document.getElementById('msg');
-  function showMsg(text, isErr) {
-    msgDiv.textContent = text;
-    msgDiv.className = 'msg ' + (isErr ? 'msg-err' : 'msg-ok');
-    msgDiv.style.display = 'block';
-    setTimeout(function(){ msgDiv.style.display = 'none'; }, 3000);
-  }
+        # Track last data row
+        for bl in ('A', 'O', 'AC'):
+            found = [e for e in entries if e['block'] == bl]
+            if found and found[0]['years']:
+                _last_dr_blk[bl] = seg_start + 1 + len(found[0]['years'])
 
-  const ctxMenu = document.getElementById('ctxMenu');
+    # Mint data JSON
+    _mint_data = {}
+    for c in COUNTRIES:
+        if c.get('mint_marks'):
+            cname = c['name']
+            yrs = get_years(cname)
+            for yr in yrs:
+                for dk in ['1c','2c','5c','10c','20c','50c','1\u20ac','2\u20ac','CC1','CC2','CC3']:
+                    entry = get_coin(cname, yr, dk)
+                    _val = coin_value(entry)
+                    _ct = coin_cell_type(entry)
+                    _img = coin_image(entry)
+                    _mv = mintage_for(cname, yr, dk)
+                    for mm in c['mint_marks']:
+                        mentry = get_coin(cname, yr, dk, mm)
+                        mval = coin_value(mentry)
+                        mct = coin_cell_type(mentry)
+                        mimg = coin_image(mentry)
+                        mmv = mintage_for(cname, yr, dk, mm)
+                        ref = coin_key(cname, yr, dk)
+                        if mval:
+                            _mint_data.setdefault('overrides_mint', {})[ref + '|' + mm] = mval
+                        if mct:
+                            _mint_data.setdefault('cell_types_mint', {})[ref + '|' + mm] = mct
+                        if mimg:
+                            _mint_data.setdefault('image_links_mint', {})[ref + '|' + mm] = mimg
+                        if mmv:
+                            _mint_data.setdefault('mintage_mint', {})[ref + '|' + mm] = mmv
+    if _mint_data:
+        _mint_data['mints'] = {c['name']: c['mint_marks'] for c in COUNTRIES if c.get('mint_marks')}
+        _mint_data['active_mint'] = mint_arg
+    _mint_data_str = json.dumps(_mint_data, ensure_ascii=False) if _mint_data else '{}'
 
-  // Context menu items
-  const CTX_ITEMS = [
-    {type:'green', label:'>5 Mio',     color:'#C5DEB5'},
-    {type:'blue',  label:'>2M–5M',    color:'#8EAADB'},
-    {type:'orange',label:'>1M–2M',    color:'#FF8C42'},
-    {type:'yellow',label:'≤1M',       color:'#FFE598'},
-    {type:'nifc',  label:'NIFC',      color:'#FFC7CE'},
-    {type:'x',     label:'✕ Nie gepr.',color:'#FFC7CE'},
-    {type:'nodata',label:'Keine Daten',color:'#ffffff'},
-  ];
-  let ctxTarget = null; // the td that was clicked
+    h += '</table>\n'
 
-  function buildCtxMenu() {
-    let html = '';
-    CTX_ITEMS.forEach(function(item) {
-      html += '<span class="ctx-item" data-ctype="' + item.type + '">' +
-        '<span class="ctx-swatch" style="background:' + item.color + '"></span>' +
-        item.label + '</span>';
-    });
-    ctxMenu.innerHTML = html;
-    ctxMenu.querySelectorAll('.ctx-item').forEach(function(el) {
-      el.addEventListener('click', function(e) {
-        e.stopPropagation();
-        const ctype = this.getAttribute('data-ctype');
-        if (ctxTarget) {
-          const ref = ctxTarget.getAttribute('data-ref');
-          if (ref) {
-            // Apply visually immediately (optimistic)
-            const colorMap = {'green':'#C5DEB5','blue':'#8EAADB','orange':'#FF8C42','yellow':'#FFE598','nifc':'#FFC7CE','x':'#FFC7CE','nodata':'#ffffff'};
-            if (ctype === 'x') {
-              ctxTarget.textContent = '✕';
-              ctxTarget.setAttribute('data-xlocked','1');
-              ctxTarget.contentEditable = 'false';
-              ctxTarget.style.background = '#FFC7CE';
-            } else if (ctype === 'nodata') {
-              ctxTarget.removeAttribute('data-xlocked');
-              ctxTarget.style.background = '';
-              ctxTarget.style.color = '';
-              if (ctxTarget.textContent === '✕') ctxTarget.textContent = '';
-            } else {
-              ctxTarget.removeAttribute('data-xlocked');
-              if (ctxTarget.textContent === '✕' && ctype !== 'x') {
-                ctxTarget.textContent = '';
-              }
-              ctxTarget.style.background = colorMap[ctype] || '';
-              ctxTarget.style.color = '';
-            }
-            ctxTarget.setAttribute('data-ct', ctype);
-            // Send type change to server
-            const body = {};
-            body[ref] = ctype;
-            fetch('/api/cell-types', {
-              method: 'PATCH',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify(body)
-            }).then(function(r){ return r.json(); }).then(function(j){
-              if (j.ok) {
-                showMsg('Typ geändert: ' + ctype);
-              } else {
-                showMsg('Fehler: ' + (j.error || ''), true);
-              }
-            });
-          }
-        }
-        if (ctxTarget) updateMissingCell(ctxTarget);
-        hideCtx();
-      });
-    });
-  }
-  buildCtxMenu();
+    if split_germany:
+        germany = next((c for c in COUNTRIES if c['name'] == 'Deutschland'), None)
+        if germany:
+            mints = germany.get('mint_marks', [])
+            bl = germany['block']
+            bc = BLOCK_COLS[bl]
+            germany_years = get_years('Deutschland')
+            _gcols = make_block_ordered_cols(bl)
 
-  function showCtx(td, x, y) {
-    ctxTarget = td;
-    ctxTarget.classList.add('ctx-highlight');
-    ctxMenu.style.left = Math.min(x, window.innerWidth - 220) + 'px';
-    ctxMenu.style.top = Math.min(y, window.innerHeight - 100) + 'px';
-    ctxMenu.style.display = 'block';
-  }
-  function hideCtx() {
-    ctxMenu.style.display = 'none';
-    if (ctxTarget) ctxTarget.classList.remove('ctx-highlight');
-    ctxTarget = null;
-  }
-  document.addEventListener('click', function(e) {
-    if (!e.target.closest('.ctx-menu')) hideCtx();
-  });
+            def _mint_table_html(mm):
+                _gw = sum(max(_col_widths.get(cl, 3.5) * 7.5, 6) for cl in _gcols)
+                tbl = f'<table style="width:{round(_gw,1)}px">\n'
+                for cl in _gcols:
+                    px = max(_col_widths.get(cl, 3.5) * 7.5, 6)
+                    tbl += f'<col style="width:{px:.1f}px;min-width:{px:.1f}px">\n'
+                _blabel = f'Deutschland \u2013 M\u00fcnzst\u00e4tte {mm}'
+                _cs = block_colspan(bl)
+                tbl += f'<tr><td class="c-country" colspan="{_cs}" style="background:#FF543E;color:#000"><div class="c-country-inner"><span class="c-name">{htmlmod.escape(_blabel)}</span></div></td></tr>\n'
+                tbl += '<tr>'
+                for cl in _gcols:
+                    dl = DENOM_LABEL.get(cl, '')
+                    val = dl
+                    if val in ('1', '2'):
+                        val += ' \u20ac'
+                    cls = ''
+                    if cl == bc['year']:
+                        val = ''
+                        cls = 'year-connector'
+                    elif cl == bc['igap']:
+                        val = ''
+                        cls = 'inner-gap'
+                    tbl += f'<td class="{cls}" style="font-size:7pt;text-align:center;border:1px solid #000">{htmlmod.escape(val) if val else ""}</td>'
+                tbl += '</tr>\n'
+                for yr_val in germany_years:
+                    tbl += '<tr>'
+                    for cl in _gcols:
+                        if cl == bc['year']:
+                            tbl += f'<td style="text-align:center;font-size:7pt;border:1px solid #000;background:#eee">{htmlmod.escape(yr_val)}</td>'
+                        elif cl == bc['igap']:
+                            tbl += '<td class="inner-gap">&nbsp;</td>'
+                        else:
+                            dk = make_denom_key(cl)
+                            mentry = get_coin('Deutschland', yr_val, dk, mm)
+                            val = coin_value(mentry)
+                            ct = coin_cell_type(mentry)
+                            _bg = _compute_cell_color('Deutschland', yr_val, dk, mint=mm, ct=ct)
+                            _sty = ''
+                            if ct == 'x':
+                                _sty = 'background:#FFC7CE;'
+                                val = '\u2715'
+                            elif val and '\u2715' in val:
+                                _sty = 'background:#FFC7CE;'
+                            elif _bg:
+                                _sty = f'background:#{_bg};'
+                            _ev = htmlmod.escape(val) if val else ''
+                            _fullsty = (_sty + ';' if _sty and not _sty.endswith(';') else _sty) + 'font-size:8pt;text-align:center;border:1px solid #000'
+                            tbl += f'<td style="{_fullsty}">{_ev}</td>'
+                    tbl += '</tr>\n'
+                tbl += '</table>'
+                return tbl
 
-  // ───── Legend panel toggle ─────
-  document.getElementById('legendBtn').addEventListener('click', function() {
-    var panel = document.getElementById('legendPanel');
-    var show = panel.style.display === 'none';
-    panel.style.display = show ? 'flex' : 'none';
-    this.classList.toggle('active', show);
-  });
+            for mm in mints:
+                h += f'<div class="mint-box">{_mint_table_html(mm)}</div>\n'
 
-  // ───── Missing-coin highlight mode ─────
-  let missingMode = false;
-  function updateMissingCell(td) {
-    if (!missingMode) { td.classList.remove('cell-missing', 'cell-has'); return; }
-    if (td.getAttribute('data-xlocked')) { td.classList.remove('cell-missing'); td.classList.add('cell-has'); return; }
-    var val = (td.textContent || '').replace(/\u00a0/g, '').trim();
-    if (!val) { td.classList.add('cell-missing'); td.classList.remove('cell-has'); }
-    else { td.classList.remove('cell-missing'); td.classList.add('cell-has'); }
-  }
-  function refreshMissingHighlight() {
-    document.querySelectorAll('[data-ref]').forEach(updateMissingCell);
-  }
-  document.getElementById('missingBtn').addEventListener('click', function() {
-    missingMode = !missingMode;
-    this.classList.toggle('active', missingMode);
-    document.body.classList.toggle('missing-mode', missingMode);
-    refreshMissingHighlight();
-  });
-
-
-  // ───── Info mode (per country) ─────
-  let infoMode = false;
-  let infoCountry = null;
-
-  function setInfoModeCells(on) {
-    document.querySelectorAll('[data-ref]').forEach(function(td) {
-      if (td.getAttribute('data-xlocked')) { td.contentEditable = 'false'; return; }
-      td.contentEditable = on ? 'false' : 'true';
-    });
-  }
-
-  document.querySelectorAll('.info-btn').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      const country = this.getAttribute('data-country');
-      if (infoMode && infoCountry === country) {
-        // Toggle off
-        infoMode = false;
-        infoCountry = null;
-        document.querySelectorAll('.info-btn').forEach(function(b){ b.classList.remove('active'); });
-        setInfoModeCells(false);
-        return;
-      }
-      // Activate info mode for this country
-      infoMode = true;
-      infoCountry = country;
-      document.querySelectorAll('.info-btn').forEach(function(b){ b.classList.remove('active'); });
-      this.classList.add('active');
-      setInfoModeCells(true);
-      showMsg('Info-Modus für ' + country + ' aktiv. Klicke auf eine Münze.');
-    });
-  });
-
-  // Info modal
-  const infoModal = document.getElementById('infoModal');
-  const infoOverlay = document.getElementById('infoOverlay');
-  let infoRef = null;
-  let infoColorType = null;
-  let infoOrigCellType = null;
-
-  const QUALITY_LABELS = {
-    '\u2714': 'Qualität noch nicht bestimmt',
-    '0': 'UNC',
-    '1': 'Gute / sehr gute Qualität',
-    '3': 'Schlechte Qualität',
-    '5': 'Sehr schlechte Qualität',
-  };
-  const SOURCE_LABELS = {
-    '\u00b0': 'Aus der Gruppe',
-    'o': 'Aus der Gruppe',
-    '*': 'Gekauft',
-    '': 'Selbst gesammelt',
-  };
-  function parseCoinEntries(val) {
-    if (!val || val === '\u2715' || val === '\u00d7') return [];
-    var entries = [];
-    var re = /(\u2714|\d)([\u00b0o*]?)/g;
-    var m;
-    while ((m = re.exec(val)) !== null) {
-      var q = m[1], s = m[2];
-      if (q in QUALITY_LABELS) {
-        entries.push({ quality: QUALITY_LABELS[q], source: SOURCE_LABELS[s] !== undefined ? SOURCE_LABELS[s] : 'Selbst gesammelt' });
-      }
-    }
-    return entries;
-  }
-
-  // ───── Quick value-picker (right-click on a coin cell) ─────
-  const valuePicker = document.getElementById('valuePicker');
-  const vpEntriesDiv = document.getElementById('vpEntries');
-  const vpSourceRow = document.getElementById('vpSourceRow');
-  let vpTarget = null;
-  let vpPendingQ = null;
-
-  function vpParseRaw(val) {
-    if (!val || val === '\u2715' || val === '\u00d7') return [];
-    var entries = [];
-    var re = /(\u2714|\d)([\u00b0o*]?)/g;
-    var m;
-    while ((m = re.exec(val)) !== null) entries.push({ q: m[1], s: m[2] });
-    return entries;
-  }
-  function vpSerialize(entries) {
-    return entries.map(function(e) { return e.q + (e.s || ''); }).join('');
-  }
-  function vpRenderEntries(entries) {
-    vpEntriesDiv.innerHTML = entries.map(function(e, i) {
-      var ql = QUALITY_LABELS[e.q] || e.q;
-      var sl = SOURCE_LABELS[e.s] !== undefined ? SOURCE_LABELS[e.s] : 'Selbst gesammelt';
-      return '<div class="vp-entry">' + ql + ' &mdash; <span class="vp-entry-source">' + sl + '</span>' +
-        '<span class="vp-entry-del" data-idx="' + i + '">&times;</span></div>';
-    }).join('') || '<div class="vp-empty">Keine Münzen erfasst</div>';
-    vpEntriesDiv.querySelectorAll('.vp-entry-del').forEach(function(el) {
-      el.addEventListener('click', function(e) {
-        e.stopPropagation();
-        var idx = parseInt(this.getAttribute('data-idx'), 10);
-        var entries = vpParseRaw(vpTarget.getAttribute('data-vp-val') || '');
-        entries.splice(idx, 1);
-        vpApply(entries);
-      });
-    });
-  }
-  function vpApply(entries) {
-    var newVal = vpSerialize(entries);
-    vpTarget.setAttribute('data-vp-val', newVal);
-    vpTarget.textContent = newVal;
-    var ref = vpTarget.getAttribute('data-ref');
-    if (ref) scheduleSave(ref, newVal);
-    updateMissingCell(vpTarget);
-    vpRenderEntries(entries);
-  }
-  function showValuePicker(td, x, y) {
-    vpTarget = td;
-    vpPendingQ = null;
-    vpSourceRow.style.display = 'none';
-    var cur = td.textContent.trim();
-    td.setAttribute('data-vp-val', cur === '\u2715' ? '' : cur);
-    vpRenderEntries(vpParseRaw(td.getAttribute('data-vp-val')));
-    valuePicker.style.left = Math.min(x, window.innerWidth - 250) + 'px';
-    valuePicker.style.top = Math.min(y, window.innerHeight - 240) + 'px';
-    valuePicker.style.display = 'block';
-    td.classList.add('ctx-highlight');
-  }
-  function hideValuePicker() {
-    valuePicker.style.display = 'none';
-    if (vpTarget) vpTarget.classList.remove('ctx-highlight');
-    vpTarget = null;
-  }
-  valuePicker.querySelectorAll('.vp-q').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      vpPendingQ = this.getAttribute('data-q');
-      vpSourceRow.style.display = 'flex';
-    });
-  });
-  valuePicker.querySelectorAll('.vp-s').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      if (!vpPendingQ) return;
-      var entries = vpParseRaw(vpTarget.getAttribute('data-vp-val') || '');
-      entries.push({ q: vpPendingQ, s: this.getAttribute('data-s') });
-      vpPendingQ = null;
-      vpSourceRow.style.display = 'none';
-      vpApply(entries);
-    });
-  });
-  document.getElementById('vpClear').addEventListener('click', function(e) {
-    e.stopPropagation();
-    vpApply([]);
-  });
-  document.getElementById('vpCloseBtn').addEventListener('click', function(e) {
-    e.stopPropagation();
-    hideValuePicker();
-  });
-  document.addEventListener('click', function(e) {
-    if (!e.target.closest('.value-picker')) hideValuePicker();
-  });
-
-  // ───── Info modal color picker ─────
-  const INFO_COLOR_ITEMS = [
-    {type:'green',  label:'>5 Mio',   color:'#C5DEB5'},
-    {type:'blue',   label:'2–5 Mio',  color:'#8EAADB'},
-    {type:'orange', label:'1–2 Mio',  color:'#FF8C42'},
-    {type:'yellow', label:'≤1 Mio',   color:'#FFE598'},
-    {type:'nifc',   label:'NIFC',     color:'#FFC7CE'},
-    {type:'x',      label:'✕ nie',    color:'#FFC7CE'},
-    {type:'nodata', label:'Standard', color:'#fff'},
-  ];
-  function buildInfoColorPicker(currentType) {
-    infoColorType = currentType || '';
-    infoOrigCellType = currentType || '';
-    var picker = document.getElementById('infoColorPicker');
-    picker.innerHTML = INFO_COLOR_ITEMS.map(function(item) {
-      var isCur = (item.type === currentType) || (item.type === 'nodata' && !currentType);
-      return '<span class="info-color-btn" data-icolor="' + item.type + '" title="' + item.label + '"' +
-        ' style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;border:1px solid #aaa;border-radius:3px;padding:2px 5px;font-size:7pt;' +
-        (isCur ? 'outline:2px solid #1a73e8;outline-offset:1px;' : '') + '">' +
-        '<span style="display:inline-block;width:10px;height:10px;background:' + item.color + ';border:1px solid #888;flex-shrink:0"></span>' +
-        item.label + '</span>';
-    }).join('');
-    picker.querySelectorAll('.info-color-btn').forEach(function(btn) {
-      btn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        var t = this.getAttribute('data-icolor');
-        infoColorType = (t === 'nodata') ? '' : t;
-        picker.querySelectorAll('.info-color-btn').forEach(function(b) {
-          b.style.outline = ''; b.style.outlineOffset = '';
-        });
-        this.style.outline = '2px solid #1a73e8';
-        this.style.outlineOffset = '1px';
-      });
-    });
-  }
-
-  function showInfoModal(ref, country, year, denom, mintage, link, cellVal, ccName, cellType) {
-    infoRef = ref;
-    document.getElementById('infoTitle').textContent = country + ' ' + year + ' ' + denom;
-    var imgEl = document.getElementById('infoCoinImg');
-    if (link) {
-      imgEl.onerror = function() { this.style.display = 'none'; };
-      imgEl.src = link;
-      imgEl.style.display = 'block';
-    } else {
-      imgEl.removeAttribute('src');
-      imgEl.style.display = 'none';
-    }
-    document.getElementById('infoMintage').value = mintage || '';
-    var linkBtn = document.getElementById('infoLinkBtn');
-    linkBtn.href = link || '#';
-    linkBtn.style.display = link ? 'inline' : 'none';
-    document.getElementById('infoLink').value = link || '';
-    document.getElementById('infoLinkWrap').style.display = 'none';
-    var ccNameDiv = document.getElementById('infoCCName');
-    if (ccName) {
-      document.getElementById('infoCCNameText').textContent = ccName;
-      ccNameDiv.style.display = 'block';
-    } else {
-      ccNameDiv.style.display = 'none';
-    }
-    // Coin details
-    var entries = parseCoinEntries(cellVal || '');
-    var detailsDiv = document.getElementById('infoCoinDetails');
-    var entriesDiv = document.getElementById('infoCoinEntries');
-    if (entries.length) {
-      entriesDiv.innerHTML = entries.map(function(e) {
-        var src = e.source ? ' &mdash; <span class="coin-entry-source">' + e.source + '</span>' : '';
-        return '<div class="coin-entry"><span class="coin-entry-quality">' + e.quality + '</span>' + src + '</div>';
-      }).join('');
-      detailsDiv.style.display = 'block';
-    } else {
-      detailsDiv.style.display = 'none';
-    }
-    buildInfoColorPicker(cellType || '');
-    infoModal.style.display = 'block';
-    infoOverlay.style.display = 'block';
-  }
-  function hideInfoModal() {
-    infoModal.style.display = 'none';
-    infoOverlay.style.display = 'none';
-    infoRef = null;
-  }
-  document.getElementById('infoClose').addEventListener('click', hideInfoModal);
-  infoOverlay.addEventListener('click', hideInfoModal);
-  document.getElementById('infoShowLinkToggle').addEventListener('click', function() {
-    var wrap = document.getElementById('infoLinkWrap');
-    wrap.style.display = wrap.style.display === 'none' ? 'block' : 'none';
-    this.textContent = wrap.style.display === 'block' ? 'Link verbergen' : 'Link anzeigen';
-  });
-
-  document.getElementById('infoSave').addEventListener('click', function() {
-    if (!infoRef) return;
-    var mintage = document.getElementById('infoMintage').value.trim();
-    var link = document.getElementById('infoLink').value.trim();
-    // Save cell color type if changed
-    var newCt = infoColorType != null ? infoColorType : '';
-    var origCt = infoOrigCellType != null ? infoOrigCellType : '';
-    if (newCt !== origCt) {
-      var colorMap = {green:'#C5DEB5',blue:'#8EAADB',orange:'#FF8C42',yellow:'#FFE598',nifc:'#FFC7CE',x:'#FFC7CE'};
-      var td = document.querySelector('[data-ref="' + infoRef + '"]');
-      if (td) {
-        if (newCt === 'x') {
-          td.textContent = '✕'; td.setAttribute('data-xlocked','1'); td.contentEditable='false'; td.style.background='#FFC7CE';
-        } else {
-          td.removeAttribute('data-xlocked');
-          if (td.textContent === '✕') td.textContent = '';
-          td.style.background = colorMap[newCt] || '';
-          td.contentEditable = 'false'; // still in info mode
-        }
-        td.setAttribute('data-ct', newCt);
-        updateMissingCell(td);
-      }
-      var ctBody = {}; ctBody[infoRef] = newCt || 'nodata';
-      fetch('/api/cell-types', {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(ctBody)})
-        .then(function(r){ return r.json(); }).then(function(j){ if (!j.ok) showMsg('Farbe-Fehler: '+(j.error||''), true); });
-    }
-    var body = {};
-    body[infoRef] = {mintage: mintage, link: link};
-    fetch('/api/coin-info', {
-      method: 'PATCH',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body)
-    }).then(function(r){ return r.json(); }).then(function(j){
-      if (j.ok) {
-        showMsg('Gespeichert');
-        hideInfoModal();
-      } else {
-        showMsg('Fehler: ' + (j.error || ''), true);
-      }
-    });
-  });
-
-  // Update td click to also handle info mode
-  // (the click handler is defined below, we'll modify it)
-
-  // ───── Autosave for editable cells ─────
-  let saveTimer = null;
-  const pending = {};
-  function savePending() {
-    const keys = Object.keys(pending);
-    if (!keys.length) return;
-    const data = JSON.parse(JSON.stringify(pending));
-    Object.keys(pending).forEach(k => delete pending[k]);
-    fetch('/api/cells', {
-      method: 'PATCH',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(data)
-    }).then(r => r.json()).then(j => {
-      if (j.ok) showMsg('Gespeichert (' + j.saved + ')');
-    }).catch(() => {});
-  }
-  function scheduleSave(ref, value) {
-    pending[ref] = value;
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(savePending, 400);
-  }
-
-  document.querySelectorAll('[data-ref]').forEach(function(td) {
-    const xlocked = td.getAttribute('data-xlocked');
-    // x-locked cells are never editable
-    if (xlocked) {
-      td.contentEditable = 'false';
-    } else {
-      td.contentEditable = 'true';
-    }
-    td.addEventListener('focus', function() {
-      this._origVal = this.textContent.trim();
-    });
-    td.addEventListener('blur', function() {
-      // If cell was x-locked, revert value
-      if (this.getAttribute('data-xlocked')) {
-        this.textContent = '✕';
-        return;
-      }
-      const ref = this.getAttribute('data-ref');
-      let val = this.textContent.trim();
-      if (!val) { this.innerHTML = '&nbsp;'; val = ''; }
-      if (ref && val !== (this._origVal || '')) scheduleSave(ref, val);
-      updateMissingCell(this);
-    });
-    td.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        this.blur();
-      }
-    });
-    td.addEventListener('paste', function(e) {
-      e.preventDefault();
-      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-      document.execCommand('insertText', false, text);
-    });
-    // Right-click: quick quality/source picker for this coin cell
-    td.addEventListener('contextmenu', function(e) {
-      if (this.getAttribute('data-xlocked')) return;
-      e.preventDefault();
-      e.stopPropagation();
-      hideCtx();
-      showValuePicker(this, e.clientX, e.clientY);
-    });
-    // In edit mode, click opens context menu. In info mode, opens info modal.
-    td.addEventListener('click', function(e) {
-      if (!this.getAttribute('data-ref')) return;
-      if (infoMode) {
-        e.preventDefault();
-        e.stopPropagation();
-        var ref = this.getAttribute('data-ref');
-        var country = infoCountry;
-        // Determine year and denomination from the cell context
-        var row = this.parentElement;
-        var yrEl = row.querySelector('td:first-child');
-        var year = yrEl ? yrEl.textContent.trim() : '';
-        // Denom from column header
-        var colIdx = Array.prototype.indexOf.call(row.children, this);
-        var headerRow = document.querySelector('tr:nth-child(2)');
-        var denom = '';
-        if (headerRow && headerRow.children[colIdx]) {
-          denom = headerRow.children[colIdx].textContent.trim();
-        }
-        // Look up mintage + link from data attributes if present, or from initial server data
-        var mintage = this.getAttribute('data-mintage') || '';
-        var link = this.getAttribute('data-link') || '';
-        var cellVal = this.textContent.trim();
-        var ccName = this.getAttribute('data-cc-name') || '';
-        showInfoModal(ref, country, year, denom, mintage, link, cellVal, ccName, this.getAttribute('data-ct') || '');
-      }
-    });
-  });
-
-  // Undo button
-  document.getElementById('undoBtn').addEventListener('click', function() {
-    this.textContent = '↶ wird rückgängig gemacht...';
-    this.style.pointerEvents = 'none';
-    fetch('/api/undo', {method: 'POST'})
-      .then(r => r.json())
-      .then(j => {
-        if (j.ok) {
-          showMsg('Letzte Aktion rückgängig gemacht. Seite wird neu geladen...');
-          setTimeout(function(){ location.reload(); }, 800);
-        } else {
-          showMsg('Fehler: ' + (j.error || 'unbekannt'), true);
-          this.textContent = '↶ Letzte Aktion rückgängig';
-          this.style.pointerEvents = '';
-        }
-      })
-      .catch(function(e){ showMsg('Fehler: ' + e, true); this.textContent = '↶ Letzte Aktion rückgängig'; this.style.pointerEvents = ''; });
-  });
-
-  // ───── Export buttons ─────
-  document.getElementById('exportPdfBtn').addEventListener('click', function() {
-    showMsg('PDF wird erstellt...');
-    const el = document.querySelector('table');
-    if (!el) return;
-    const opt = {
-      margin:       5,
-      filename:     'muenzapp.pdf',
-      image:        {type: 'jpeg', quality: 0.98},
-      html2canvas:  {scale: 2, useCORS: true, letterRendering: true, logging: false},
-      jsPDF:        {unit: 'mm', format: 'a3', orientation: 'landscape'}
-    };
-    html2pdf().set(opt).from(el).save().then(function(){
-      showMsg('PDF exportiert');
-    }).catch(function(e){
-      showMsg('Fehler: ' + e, true);
-    });
-  });
-
-  document.getElementById('exportXlsxBtn').addEventListener('click', function() {
-    showMsg('Excel wird erstellt...');
-    window.location.href = '/api/export/xlsx';
-  });
-
-  // Add Year button logic
-  document.querySelectorAll('.add-year').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const block = this.getAttribute('data-block');
-      const country = this.getAttribute('data-country');
-      if (!block || !country) return;
-      fetch('/api/next-year?block=' + encodeURIComponent(block) + '&country=' + encodeURIComponent(country))
-        .then(r => r.json())
-        .then(j => {
-          const year = prompt('Jahr eingeben f\u00fcr ' + country + ':', j.nextYear || '2027');
-          if (!year) return;
-          return fetch('/api/add-year', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({block: block, country: country, year: year})
-          });
-        })
-        .then(r => r && r.json())
-        .then(j => {
-          if (j && j.ok) {
-            showMsg('Jahr ' + j.year + ' hinzugef\u00fcgt. Seite wird neu geladen...');
-            setTimeout(function(){ location.reload(); }, 1000);
-          } else if (j && j.error) {
-            showMsg('Fehler: ' + j.error, true);
-          }
-        })
-        .catch(function(e){ showMsg('Fehler: ' + e, true); });
-    });
-  });
-
-})();
-</script>
+    h += f'''<script id="mintData" type="application/json">{_mint_data_str}</script>
+<script id="activeMint" type="text/plain">{htmlmod.escape(mint_arg)}</script>
+<script src="/static/app.js?v={_js_hash}"></script>
 </body>
 </html>'''
-
     return h
+
 
 # ─── Routes ───
 
 @app.route('/')
 @app.route('/index.html')
 def index():
-    return generate_html()
+    mint_arg = request.args.get('mint', '')
+    layout = request.args.get('layout', '')
+    if not mint_arg:
+        for c in COUNTRIES:
+            if c.get('mint_marks'):
+                mint_arg = c['mint_marks'][0]
+                break
+    return generate_html(mint_arg=mint_arg, layout=layout)
 
 @app.route('/api/cells', methods=['PATCH'])
 def patch_cells():
-    global overrides, doc, undo_stack
+    global COINS, COINS_MINT, UNDO_STACK, REDO_STACK
     updates = request.get_json(silent=True) or {}
-    data = merge_data()
+    mint_arg = request.args.get('mint', '')
     for ref, new_val in updates.items():
-        prev = data.get(ref, '')
+        store, store_key, cname, is_mint = _resolve_storage(ref, mint_arg)
+        p = ref.split(':')
+        yr = p[1] if len(p) > 1 else ''
+        dk = p[2] if len(p) > 2 else ''
+        prev = store.get(store_key, {}).get('v', '')
         if prev != new_val:
-            undo_stack.append({'type': 'cell', 'ref': ref, 'prev': prev})
-    overrides.update(updates)
-    doc['overrides'] = overrides
-    doc['undo_stack'] = undo_stack
-    save_doc(doc)
+            atype = 'cell_mint' if is_mint else 'cell'
+            UNDO_STACK.append({'type': atype, 'ref': store_key, 'mint': mint_arg or '', 'prev': prev, 'new': new_val, 'country': cname, 'year': yr, 'denom': dk})
+        if new_val:
+            entry = store.setdefault(store_key, {})
+            entry['v'] = new_val
+        elif store_key in store:
+            entry = store[store_key]
+            entry.pop('v', None)
+            if not entry:
+                del store[store_key]
+    REDO_STACK.clear()
+    save_all()
     return jsonify({'ok': True, 'saved': len(updates)})
-
-@app.route('/api/data', methods=['GET'])
-def get_data():
-    return jsonify(merge_data())
 
 @app.route('/api/cell-types', methods=['PATCH'])
 def patch_cell_types():
-    global cell_types, doc, undo_stack
+    global COINS, COINS_MINT, UNDO_STACK, REDO_STACK
     updates = request.get_json(silent=True) or {}
+    mint_arg = request.args.get('mint', '')
     for ref, new_ct in updates.items():
-        prev = cell_types.get(ref, '')
-        if prev != new_ct:
-            undo_stack.append({'type': 'cell-type', 'ref': ref, 'prev': prev, 'new': new_ct})
-    cell_types.update(updates)
-    doc['cell_types'] = cell_types
-    doc['undo_stack'] = undo_stack
-    save_doc(doc)
+        parts = ref.rsplit(':', 1)
+        is_mint = len(parts) == 2 and parts[1] and len(parts[1]) == 1 and parts[1].isalpha()
+        if is_mint:
+            key = parts[0]
+            mint = parts[1]
+            p = key.rsplit(':', 2)
+            cname = p[0] if len(p) > 0 else ''
+            yr = p[1] if len(p) > 1 else ''
+            dk = p[2] if len(p) > 2 else ''
+            mkey = key + ':' + mint
+            prev = COINS_MINT.get(mkey, {}).get('ct', '')
+            if prev != new_ct:
+                UNDO_STACK.append({'type': 'cell-type-mint', 'ref': ref, 'mint': mint, 'prev': prev, 'new': new_ct, 'country': cname, 'year': yr, 'denom': dk})
+            if new_ct and new_ct != 'nodata':
+                entry = COINS_MINT.setdefault(mkey, {})
+                entry['ct'] = new_ct
+            else:
+                entry = COINS_MINT.get(mkey, {})
+                entry.pop('ct', None)
+                if not entry:
+                    COINS_MINT.pop(mkey, None)
+        else:
+            store, store_key, cname, is_mint = _resolve_storage(ref, mint_arg)
+            p = ref.split(':')
+            yr = p[1] if len(p) > 1 else ''
+            dk = p[2] if len(p) > 2 else ''
+            prev = store.get(store_key, {}).get('ct', '')
+            if prev != new_ct:
+                atype = 'cell-type-mint' if is_mint else 'cell-type'
+                UNDO_STACK.append({'type': atype, 'ref': store_key, 'mint': mint_arg or '', 'prev': prev, 'new': new_ct, 'country': cname, 'year': yr, 'denom': dk})
+            if new_ct and new_ct != 'nodata':
+                entry = store.setdefault(store_key, {})
+                entry['ct'] = new_ct
+            elif store_key in store:
+                entry = store[store_key]
+                entry.pop('ct', None)
+                if not entry:
+                    del store[store_key]
+    REDO_STACK.clear()
+    save_all()
     return jsonify({'ok': True, 'saved': len(updates)})
+
+@app.route('/api/copy-cell', methods=['POST'])
+def copy_cell():
+    global COINS, COINS_MINT, UNDO_STACK, REDO_STACK
+    body = request.get_json(silent=True) or {}
+    mint_arg = request.args.get('mint', '')
+    source = body.get('source_ref', '')
+    targets = body.get('target_refs', [])
+    if not source or not targets:
+        return jsonify({'error': 'Missing source_ref or target_refs'}), 400
+
+    def parse_ref(ref):
+        parts = ref.rsplit(':', 1)
+        if len(parts) == 2 and parts[1] and len(parts[1]) == 1 and parts[1].isalpha():
+            return parts[0], parts[1]
+        return ref, None
+
+    src_key, src_mint = parse_ref(source)
+    p = src_key.rsplit(':', 2)
+    src_cname = p[0] if len(p) > 0 else ''
+    src_yr = p[1] if len(p) > 1 else ''
+    src_dk = p[2] if len(p) > 2 else ''
+
+    src_entry = get_coin(src_cname, src_yr, src_dk, src_mint)
+    src_val = coin_value(src_entry)
+    src_ct = coin_cell_type(src_entry)
+
+    for ref in targets:
+        if ref == source:
+            continue
+        tgt_key, tgt_mint = parse_ref(ref)
+        p2 = tgt_key.rsplit(':', 2)
+        tgt_cname = p2[0] if len(p2) > 0 else ''
+        tgt_yr = p2[1] if len(p2) > 1 else ''
+        tgt_dk = p2[2] if len(p2) > 2 else ''
+
+        if tgt_mint:
+            mkey = tgt_key + ':' + tgt_mint
+            prev_val = COINS_MINT.get(mkey, {}).get('v', '')
+            prev_ct = COINS_MINT.get(mkey, {}).get('ct', '')
+            if src_val != prev_val:
+                UNDO_STACK.append({'type': 'cell_mint', 'ref': ref, 'mint': tgt_mint, 'prev': prev_val, 'new': src_val, 'country': tgt_cname, 'year': tgt_yr, 'denom': tgt_dk})
+            if src_ct != prev_ct:
+                UNDO_STACK.append({'type': 'cell-type-mint', 'ref': ref, 'mint': tgt_mint, 'prev': prev_ct, 'new': src_ct, 'country': tgt_cname, 'year': tgt_yr, 'denom': tgt_dk})
+            entry = COINS_MINT.setdefault(mkey, {})
+            if src_val:
+                entry['v'] = src_val
+            else:
+                entry.pop('v', None)
+            if src_ct:
+                entry['ct'] = src_ct
+            else:
+                entry.pop('ct', None)
+            if not entry:
+                COINS_MINT.pop(mkey, None)
+        else:
+            tgt_store, tgt_store_key, tgt_cname2, is_mint = _resolve_storage(ref, mint_arg)
+            prev_val = tgt_store.get(tgt_store_key, {}).get('v', '')
+            prev_ct = tgt_store.get(tgt_store_key, {}).get('ct', '')
+            tgt_p = ref.split(':')
+            tgt_yr2 = tgt_p[1] if len(tgt_p) > 1 else ''
+            tgt_dk2 = tgt_p[2] if len(tgt_p) > 2 else ''
+            if src_val != prev_val:
+                atype = 'cell_mint' if is_mint else 'cell'
+                UNDO_STACK.append({'type': atype, 'ref': tgt_store_key, 'mint': mint_arg or '', 'prev': prev_val, 'new': src_val, 'country': tgt_cname2, 'year': tgt_yr2, 'denom': tgt_dk2})
+            if src_ct != prev_ct:
+                atype = 'cell-type-mint' if is_mint else 'cell-type'
+                UNDO_STACK.append({'type': atype, 'ref': tgt_store_key, 'mint': mint_arg or '', 'prev': prev_ct, 'new': src_ct, 'country': tgt_cname2, 'year': tgt_yr2, 'denom': tgt_dk2})
+            entry = tgt_store.setdefault(tgt_store_key, {})
+            if src_val:
+                entry['v'] = src_val
+            else:
+                entry.pop('v', None)
+            if src_ct:
+                entry['ct'] = src_ct
+            else:
+                entry.pop('ct', None)
+            if not entry:
+                del tgt_store[tgt_store_key]
+    REDO_STACK.clear()
+    save_all()
+    return jsonify({'ok': True, 'copied': len(targets)})
+
+@app.route('/api/batch-edit', methods=['POST'])
+def batch_edit():
+    global COINS, COINS_MINT, UNDO_STACK, REDO_STACK
+    body = request.get_json(silent=True) or {}
+    mint_arg = request.args.get('mint', '')
+    refs = body.get('refs', [])
+    new_ct = body.get('cell_type')
+    new_val = body.get('coin_value')
+    has_ct = 'cell_type' in body
+    has_val = 'coin_value' in body
+    if not refs or (not has_ct and not has_val):
+        return jsonify({'error': 'Provide refs and cell_type and/or coin_value'}), 400
+
+    for ref in refs:
+        parts = ref.rsplit(':', 1)
+        is_mint = len(parts) == 2 and parts[1] and len(parts[1]) == 1 and parts[1].isalpha()
+
+        if is_mint:
+            key = parts[0]
+            mint = parts[1]
+            mkey = key + ':' + mint
+            p = key.rsplit(':', 2)
+            cname = p[0] if len(p) > 0 else ''
+            yr = p[1] if len(p) > 1 else ''
+            dk = p[2] if len(p) > 2 else ''
+            if has_ct:
+                prev_ct = COINS_MINT.get(mkey, {}).get('ct', '')
+                if prev_ct != new_ct:
+                    UNDO_STACK.append({'type': 'cell-type-mint', 'ref': ref, 'mint': mint, 'prev': prev_ct, 'new': new_ct or '', 'country': cname, 'year': yr, 'denom': dk})
+                if new_ct and new_ct != 'nodata':
+                    entry = COINS_MINT.setdefault(mkey, {})
+                    entry['ct'] = new_ct
+                else:
+                    entry = COINS_MINT.get(mkey, {})
+                    entry.pop('ct', None)
+                    if not entry:
+                        COINS_MINT.pop(mkey, None)
+            if has_val:
+                prev_val = COINS_MINT.get(mkey, {}).get('v', '')
+                if prev_val != new_val:
+                    UNDO_STACK.append({'type': 'cell_mint', 'ref': ref, 'mint': mint, 'prev': prev_val, 'new': new_val or '', 'country': cname, 'year': yr, 'denom': dk})
+                if new_val:
+                    entry = COINS_MINT.setdefault(mkey, {})
+                    entry['v'] = new_val
+                else:
+                    entry = COINS_MINT.get(mkey, {})
+                    entry.pop('v', None)
+                    if not entry:
+                        COINS_MINT.pop(mkey, None)
+        else:
+            store, store_key, cname, is_mint = _resolve_storage(ref, mint_arg)
+            p = ref.split(':')
+            yr = p[1] if len(p) > 1 else ''
+            dk = p[2] if len(p) > 2 else ''
+            if has_ct:
+                prev_ct = store.get(store_key, {}).get('ct', '')
+                if prev_ct != new_ct:
+                    atype = 'cell-type-mint' if is_mint else 'cell-type'
+                    UNDO_STACK.append({'type': atype, 'ref': store_key, 'mint': mint_arg or '', 'prev': prev_ct, 'new': new_ct or '', 'country': cname, 'year': yr, 'denom': dk})
+                if new_ct and new_ct != 'nodata':
+                    entry = store.setdefault(store_key, {})
+                    entry['ct'] = new_ct
+                elif store_key in store:
+                    entry = store[store_key]
+                    entry.pop('ct', None)
+                    if not entry:
+                        del store[store_key]
+            if has_val:
+                prev_val = store.get(store_key, {}).get('v', '')
+                if prev_val != new_val:
+                    atype = 'cell_mint' if is_mint else 'cell'
+                    UNDO_STACK.append({'type': atype, 'ref': store_key, 'mint': mint_arg or '', 'prev': prev_val, 'new': new_val or '', 'country': cname, 'year': yr, 'denom': dk})
+                if new_val:
+                    entry = store.setdefault(store_key, {})
+                    entry['v'] = new_val
+                elif store_key in store:
+                    entry = store[store_key]
+                    entry.pop('v', None)
+                    if not entry:
+                        del COINS[key]
+    REDO_STACK.clear()
+    save_all()
+    return jsonify({'ok': True, 'updated': len(refs)})
 
 @app.route('/api/add-year', methods=['POST'])
 def add_year():
-    global extensions, doc, undo_stack
+    global EXTENSIONS, UNDO_STACK, REDO_STACK
     body = request.get_json(silent=True) or {}
     bl = body.get('block')
     cname = body.get('country')
@@ -1364,245 +1271,1155 @@ def add_year():
     if not bl or not cname or not year:
         return jsonify({'error': 'Missing block, country, or year'}), 400
 
-    found = any(cn == cname for (_, b), cn in COUNTRY_HEADERS.items() if b == bl)
+    found = any(c['name'] == cname for c in COUNTRIES)
     if not found:
-        return jsonify({'error': 'Country not found in this block'}), 404
+        return jsonify({'error': 'Country not found'}), 404
 
-    ebl = extensions.setdefault(bl, {})
-    elist = ebl.setdefault(cname, [])
+    elist = EXTENSIONS.setdefault(cname, [])
     if year in elist:
         return jsonify({'error': 'Year already added'}), 409
-    undo_stack.append({'type': 'add-year', 'block': bl, 'country': cname, 'year': year})
+    UNDO_STACK.append({'type': 'add-year', 'block': bl, 'country': cname, 'year': year})
+    REDO_STACK.clear()
     elist.append(year)
-    elist.sort(key=lambda y: int(y) if y.isdigit() else y)
-    doc['extensions'] = extensions
-    doc['undo_stack'] = undo_stack
-    save_doc(doc)
+    elist.sort(key=_year_sort_key)
+    # Auto-generate image links for the new year
+    cname_en = ''
+    for c in COUNTRIES:
+        if c['name'] == cname:
+            cname_en = c.get('image_name_en', '')
+            break
+    if cname_en:
+        for dk in ['1c','2c','5c','10c','20c','50c','1\u20ac','2\u20ac','CC1','CC2','CC3']:
+            ck = coin_key(cname, year, dk)
+            if ck not in COINS or not coin_image(COINS.get(ck, {})):
+                url = image_url_for(cname, year, dk)
+                if url:
+                    entry = COINS.setdefault(ck, {})
+                    if not entry.get('img'):
+                        entry['img'] = url
+
+    save_all()
     return jsonify({'ok': True, 'year': year})
 
-@app.route('/api/undo', methods=['POST'])
-def undo():
-    global overrides, extensions, doc, undo_stack
-    if not undo_stack:
-        return jsonify({'error': 'Nothing to undo'}), 400
-    action = undo_stack.pop()
-    if action['type'] == 'cell':
-        ref = action['ref']
-        prev = action['prev']
-        if prev:
-            overrides[ref] = prev
-        elif ref in overrides:
-            del overrides[ref]
-        doc['overrides'] = overrides
-    elif action['type'] == 'add-year':
-        bl, cname, year = action['block'], action['country'], action['year']
-        elist = extensions.get(bl, {}).get(cname, [])
-        if year in elist:
-            elist.remove(year)
-        if not elist:
-            extensions.get(bl, {}).pop(cname, None)
-        if not extensions.get(bl):
-            extensions.pop(bl, None)
-        doc['extensions'] = extensions
-    elif action['type'] == 'cell-type':
-        ref = action['ref']
-        prev = action['prev']
-        if prev:
-            cell_types[ref] = prev
-        elif ref in cell_types:
-            del cell_types[ref]
-        doc['cell_types'] = cell_types
-    doc['undo_stack'] = undo_stack
-    save_doc(doc)
-    return jsonify({'ok': True, 'undone': action['type']})
+@app.route('/api/remove-year', methods=['POST'])
+def remove_year():
+    global EXTENSIONS, UNDO_STACK, REDO_STACK, COINS, COINS_MINT, MINTAGE, MINTAGE_MINT, CC_NAMES, IMAGE_LINKS_MINT, _COIN_YEARS
+    body = request.get_json(silent=True) or {}
+    bl = body.get('block')
+    cname = body.get('country')
+    year = body.get('year', '')
+    if not bl or not cname or not year:
+        return jsonify({'error': 'Missing block, country, or year'}), 400
+
+    found = any(c['name'] == cname for c in COUNTRIES)
+    if not found:
+        return jsonify({'error': 'Country not found'}), 404
+
+    prefix = cname + ':' + year
+
+    # Save deleted data for undo
+    deleted = {}
+    for d, name in [(COINS, 'coins'), (MINTAGE, 'mintage'), (COINS_MINT, 'coins_mint'),
+                    (MINTAGE_MINT, 'mintage_mint'), (IMAGE_LINKS_MINT, 'image_links_mint')]:
+        entries = {k: v for k, v in d.items() if k.startswith(prefix + ':')}
+        if entries:
+            deleted[name] = entries
+    cc_entries = {k: v for k, v in CC_NAMES.items() if k.startswith(prefix + ':')}
+    if cc_entries:
+        deleted['cc_names'] = cc_entries
+
+    UNDO_STACK.append({'type': 'remove-year', 'block': bl, 'country': cname, 'year': year, 'deleted': deleted})
+    REDO_STACK.clear()
+
+    # Remove from extensions
+    elist = EXTENSIONS.get(cname, [])
+    if year in elist:
+        elist.remove(year)
+    if not elist:
+        EXTENSIONS.pop(cname, None)
+
+    # Delete all coin data for this country + year
+    for d in (COINS, MINTAGE):
+        for k in list(d.keys()):
+            if k.startswith(prefix + ':'):
+                del d[k]
+    for d in (COINS_MINT, MINTAGE_MINT, IMAGE_LINKS_MINT):
+        for k in list(d.keys()):
+            if k.startswith(prefix + ':'):
+                del d[k]
+    for k in list(CC_NAMES.keys()):
+        if k.startswith(prefix + ':'):
+            del CC_NAMES[k]
+
+    # Rebuild coin years cache
+    _COIN_YEARS = _build_coin_years_cache()
+
+    save_all()
+    return jsonify({'ok': True, 'year': year})
 
 @app.route('/api/next-year', methods=['GET'])
 def next_year():
     bl = request.args.get('block', '')
     cname = request.args.get('country', '')
     max_y = 0
-    # Check base data
-    for i, (cr, cn2) in enumerate(block_countries.get(bl, [])):
-        if cn2 == cname:
-            next_cr = block_countries[bl][i+1][0] if i+1 < len(block_countries[bl]) else MAX_ROW + 1
-            for dr in range(cr + 2, next_cr):
-                yv = base_data.get(YEAR_COL[bl] + str(dr), '')
-                if yv and yv.isdigit():
-                    max_y = max(max_y, int(yv))
-            break
-    # Check extensions
-    for ey in extensions.get(bl, {}).get(cname, []):
+    for y in COUNTRY_YEARS.get(cname, []):
+        if y.isdigit():
+            max_y = max(max_y, int(y))
+    for ey in EXTENSIONS.get(cname, []):
         if ey.isdigit():
             max_y = max(max_y, int(ey))
     return jsonify({'nextYear': str(max_y + 1) if max_y else '2027'})
 
 @app.route('/api/coin-info', methods=['PATCH'])
 def patch_coin_info():
-    global mintage_data, image_links, doc
+    global COINS, COINS_MINT, MINTAGE, MINTAGE_MINT, IMAGE_LINKS_MINT
+    mint_arg = request.args.get('mint', '')
     updates = request.get_json(silent=True) or {}
-    mintage_data.update({k: v.get('mintage', '') for k, v in updates.items() if isinstance(v, dict)})
-    image_links.update({k: v.get('link', '') for k, v in updates.items() if isinstance(v, dict)})
-    doc['mintage'] = mintage_data
-    doc['image_links'] = image_links
-    save_doc(doc)
+    for ref, info in updates.items():
+        if isinstance(info, dict):
+            link = info.get('link', '')
+            mintage_val = info.get('mintage', '')
+            parts = ref.rsplit(':', 1)
+            is_mint = len(parts) == 2 and parts[1] and len(parts[1]) == 1 and parts[1].isalpha() and parts[0].count(':') >= 2
+            if is_mint:
+                key = parts[0]
+                mint = parts[1]
+                mkey = key + ':' + mint
+                if mintage_val:
+                    MINTAGE_MINT[mkey] = mintage_val
+                else:
+                    MINTAGE_MINT.pop(mkey, None)
+                if link:
+                    mentry = COINS_MINT.setdefault(mkey, {})
+                    mentry['img'] = link
+                elif mkey in COINS_MINT:
+                    mentry = COINS_MINT.get(mkey, {})
+                    mentry.pop('img', None)
+                    if not mentry:
+                        COINS_MINT.pop(mkey, None)
+            else:
+                store, store_key, cname, use_mint = _resolve_storage(ref, mint_arg)
+                mnkey = store_key
+                mmkey = store_key
+                if use_mint:
+                    if mintage_val:
+                        MINTAGE_MINT[mmkey] = mintage_val
+                    else:
+                        MINTAGE_MINT.pop(mmkey, None)
+                    if link:
+                        mentry = COINS_MINT.setdefault(mmkey, {})
+                        mentry['img'] = link
+                    elif mmkey in COINS_MINT:
+                        mentry = COINS_MINT.get(mmkey, {})
+                        mentry.pop('img', None)
+                        if not mentry:
+                            COINS_MINT.pop(mmkey, None)
+                else:
+                    if mintage_val:
+                        MINTAGE[ref] = mintage_val
+                    else:
+                        MINTAGE.pop(ref, None)
+                    if link:
+                        entry = COINS.setdefault(ref, {})
+                        entry['img'] = link
+                    elif ref in COINS:
+                        entry = COINS[ref]
+                        entry.pop('img', None)
+                        if not entry:
+                            del COINS[ref]
+    save_all()
     return jsonify({'ok': True})
+
+@app.route('/api/undo', methods=['POST'])
+def undo():
+    global UNDO_STACK, REDO_STACK, COINS, COINS_MINT, EXTENSIONS, MINTAGE, MINTAGE_MINT, IMAGE_LINKS_MINT, CC_NAMES, _COIN_YEARS
+    if not UNDO_STACK:
+        return jsonify({'error': 'Nothing to undo'}), 400
+    action = UNDO_STACK.pop()
+    REDO_STACK.append(action)
+    if action['type'] == 'cell':
+        ref = action['ref']
+        prev = action['prev']
+        if prev:
+            entry = COINS.setdefault(ref, {})
+            entry['v'] = prev
+        elif ref in COINS:
+            entry = COINS[ref]
+            entry.pop('v', None)
+            if not entry:
+                del COINS[ref]
+    elif action['type'] == 'cell_mint':
+        ref = action['ref']
+        mint = action.get('mint', '')
+        mkey = ref + ':' + mint
+        prev = action['prev']
+        if prev:
+            entry = COINS_MINT.setdefault(mkey, {})
+            entry['v'] = prev
+        elif mkey in COINS_MINT:
+            entry = COINS_MINT[mkey]
+            entry.pop('v', None)
+            if not entry:
+                del COINS_MINT[mkey]
+    elif action['type'] == 'add-year':
+        cname = action['country']
+        year = action['year']
+        elist = EXTENSIONS.get(cname, [])
+        if year in elist:
+            elist.remove(year)
+        if not elist:
+            EXTENSIONS.pop(cname, None)
+    elif action['type'] == 'remove-year':
+        cname = action['country']
+        year = action['year']
+        deleted = action.get('deleted', {})
+        elist = EXTENSIONS.setdefault(cname, [])
+        if year not in elist:
+            elist.append(year)
+            elist.sort(key=_year_sort_key)
+        # Restore deleted data
+        _map = {'coins': COINS, 'mintage': MINTAGE, 'coins_mint': COINS_MINT,
+                'mintage_mint': MINTAGE_MINT, 'image_links_mint': IMAGE_LINKS_MINT}
+        for name, entries in deleted.items():
+            if name in _map:
+                _map[name].update(entries)
+            elif name == 'cc_names':
+                CC_NAMES.update(entries)
+        _COIN_YEARS = _build_coin_years_cache()
+    elif action['type'] == 'cell-type':
+        ref = action['ref']
+        prev = action['prev']
+        if prev and prev != 'nodata':
+            entry = COINS.setdefault(ref, {})
+            entry['ct'] = prev
+        elif ref in COINS:
+            entry = COINS[ref]
+            entry.pop('ct', None)
+            if not entry:
+                del COINS[ref]
+    elif action['type'] == 'cell-type-mint':
+        ref = action['ref']
+        mint = action.get('mint', '')
+        mkey = ref + ':' + mint
+        prev = action['prev']
+        if prev and prev != 'nodata':
+            entry = COINS_MINT.setdefault(mkey, {})
+            entry['ct'] = prev
+        elif mkey in COINS_MINT:
+            entry = COINS_MINT[mkey]
+            entry.pop('ct', None)
+            if not entry:
+                del COINS_MINT[mkey]
+    save_all()
+    return jsonify({'ok': True, 'undone': action['type'], 'ref': action.get('ref', '')})
+
+@app.route('/api/redo', methods=['POST'])
+def redo():
+    global UNDO_STACK, REDO_STACK, COINS, COINS_MINT, EXTENSIONS, MINTAGE, MINTAGE_MINT, IMAGE_LINKS_MINT, CC_NAMES, _COIN_YEARS
+    if not REDO_STACK:
+        return jsonify({'error': 'Nothing to redo'}), 400
+    action = REDO_STACK.pop()
+    UNDO_STACK.append(action)
+    if action['type'] == 'cell':
+        ref = action['ref']
+        new_val = action.get('new', '')
+        if new_val:
+            entry = COINS.setdefault(ref, {})
+            entry['v'] = new_val
+        elif ref in COINS:
+            entry = COINS[ref]
+            entry.pop('v', None)
+            if not entry:
+                del COINS[ref]
+    elif action['type'] == 'cell_mint':
+        ref = action['ref']
+        mint = action.get('mint', '')
+        mkey = ref + ':' + mint
+        new_val = action.get('new', '')
+        if new_val:
+            entry = COINS_MINT.setdefault(mkey, {})
+            entry['v'] = new_val
+        elif mkey in COINS_MINT:
+            entry = COINS_MINT[mkey]
+            entry.pop('v', None)
+            if not entry:
+                del COINS_MINT[mkey]
+    elif action['type'] == 'add-year':
+        cname = action['country']
+        year = action['year']
+        elist = EXTENSIONS.setdefault(cname, [])
+        if year not in elist:
+            elist.append(year)
+            elist.sort(key=_year_sort_key)
+    elif action['type'] == 'remove-year':
+        cname = action['country']
+        year = action['year']
+        prefix = cname + ':' + year
+        elist = EXTENSIONS.get(cname, [])
+        if year in elist:
+            elist.remove(year)
+        if not elist:
+            EXTENSIONS.pop(cname, None)
+        for d in (COINS, MINTAGE):
+            for k in list(d.keys()):
+                if k.startswith(prefix + ':'):
+                    del d[k]
+        for d in (COINS_MINT, MINTAGE_MINT, IMAGE_LINKS_MINT):
+            for k in list(d.keys()):
+                if k.startswith(prefix + ':'):
+                    del d[k]
+        for k in list(CC_NAMES.keys()):
+            if k.startswith(prefix + ':'):
+                del CC_NAMES[k]
+        _COIN_YEARS = _build_coin_years_cache()
+    elif action['type'] == 'cell-type':
+        ref = action['ref']
+        new_ct = action['new']
+        if new_ct and new_ct != 'nodata':
+            entry = COINS.setdefault(ref, {})
+            entry['ct'] = new_ct
+        elif ref in COINS:
+            entry = COINS[ref]
+            entry.pop('ct', None)
+            if not entry:
+                del COINS[ref]
+    elif action['type'] == 'cell-type-mint':
+        ref = action['ref']
+        mint = action.get('mint', '')
+        mkey = ref + ':' + mint
+        new_ct = action['new']
+        if new_ct and new_ct != 'nodata':
+            entry = COINS_MINT.setdefault(mkey, {})
+            entry['ct'] = new_ct
+        elif mkey in COINS_MINT:
+            entry = COINS_MINT[mkey]
+            entry.pop('ct', None)
+            if not entry:
+                del COINS_MINT[mkey]
+    save_all()
+    return jsonify({'ok': True, 'redone': action['type'], 'ref': action.get('ref', '')})
+
+def _action_desc(action):
+    t = action['type']
+    cn = action.get('country', '')
+    yr = action.get('year', '')
+    dl = action.get('denom', '')
+    mint = action.get('mint', '')
+    parts = [p for p in (cn, dl, yr) if p]
+    base = ' '.join(parts) if parts else action.get('ref', t)
+    if t in ('cell', 'cell-type', 'cell_mint', 'cell-type-mint'):
+        if mint:
+            base += f' ({mint})'
+        return base
+    elif t == 'add-year':
+        return f"Jahr {action['year']} ({action['country']})"
+    elif t == 'remove-year':
+        return f"Jahr {action['year']} entfernen ({action['country']})"
+    return t
+
+@app.route('/api/undo-preview', methods=['GET'])
+def undo_preview():
+    if not UNDO_STACK:
+        return jsonify({'desc': ''})
+    return jsonify({'desc': _action_desc(UNDO_STACK[-1])})
+
+@app.route('/api/redo-preview', methods=['GET'])
+def redo_preview():
+    if not REDO_STACK:
+        return jsonify({'desc': ''})
+    return jsonify({'desc': _action_desc(REDO_STACK[-1])})
+
+@app.route('/api/breakdown')
+def api_breakdown():
+    mint_arg = request.args.get('mint', '')
+    _S = _compute_all_stats(mint_arg)
+    _rows = [{'label': d, 'count': _S['denom_counts'][d], 'cents': _S['denom_counts'][d] * _S['denom_val_cents'][d]}
+             for d in ('1c','2c','5c','10c','20c','50c','1\u20ac','2\u20ac','CC')
+             if _S['denom_counts'][d]]
+    return jsonify({
+        'breakdown': _rows, 'totalCents': _S['total_cents'],
+        'countryStats': _S['country_stats'], 'globalCellStats': _S['global_cell'],
+        'regDenomStats': _S['reg_denom'], 'nifcDenomStats': _S['nifc_denom'],
+    })
+
+@app.route('/api/missing')
+def api_missing():
+    _missing = []
+    for c in COUNTRIES:
+        cname = c['name']
+        bl = c['block']
+        mints = c.get('mint_marks', [])
+        yrs = get_years(cname)
+        for yr in yrs:
+            for dk in ['1c','2c','5c','10c','20c','50c','1\u20ac','2\u20ac']:
+                entry = get_coin(cname, yr, dk)
+                val = coin_value(entry)
+                ct = coin_cell_type(entry)
+                if ct == 'nifc' or ct == 'x':
+                    continue
+                fl = _compute_cell_color(cname, yr, dk, ct=ct)
+                if fl == 'FFC7CE':
+                    continue
+                if not val or val.strip() in ('\u2715', '\u00d7'):
+                    _missing.append({'block': bl, 'country': cname, 'year': yr, 'denom': dk})
+    _missing.sort(key=lambda x: (x['country'], x['year'], x['denom']))
+    return jsonify({'missing': _missing})
 
 @app.route('/api/export/xlsx', methods=['GET'])
 def export_xlsx():
-    data = merge_data()
+    mint_arg = request.args.get('mint', '')
+    layout = request.args.get('layout', '')
+    split_germany = layout == 'split'
+    segments = compute_segments()
     wb = Workbook()
     ws = wb.active
     ws.title = 'M\u00fcnzApp'
 
-    # Column widths (approximate from col_widths)
-    for ci, cl in enumerate(cols_letters, 1):
-        w = max(col_widths[cl], 0.66)
-        ws.column_dimensions[get_column_letter(ci)].width = w * 1.6
-
-    # Styles
-    thin_black = Border(left=Side(style='thin',color='000000'),
-                        right=Side(style='thin',color='000000'),
-                        top=Side(style='thin',color='000000'),
-                        bottom=Side(style='thin',color='000000'))
+    thin_black = Border(left=Side(style='thin',color='000000'), right=Side(style='thin',color='000000'), top=Side(style='thin',color='000000'), bottom=Side(style='thin',color='000000'))
+    no_border = Border()
     def cell_fill(hex_color):
         return PatternFill(start_color=hex_color, end_color=hex_color, fill_type='solid') if hex_color else PatternFill(fill_type=None)
-    cell_type_fills = {
-        'green':  cell_fill('C5DEB5'),
-        'blue':   cell_fill('8EAADB'),
-        'orange': cell_fill('FF8C42'),
-        'yellow': cell_fill('FFE598'),
-        'nifc':   cell_fill('FFC7CE'),
-        'x':      cell_fill('FFC7CE'),
-        'nodata': PatternFill(fill_type=None),
+    _ct_fills = {
+        'green': cell_fill('C5DEB5'), 'blue': cell_fill('8EAADB'), 'orange': cell_fill('FF8C42'),
+        'yellow': cell_fill('FFE598'), 'nifc': cell_fill('FFC7CE'), 'x': cell_fill('FFC7CE'),
     }
     red_fill = cell_fill('FF543E')
+    gray_fill = cell_fill('EEEEEE')
     cen = Alignment(horizontal='center', vertical='center', wrapText=False)
     left_ali = Alignment(horizontal='left', vertical='center', wrapText=False)
 
+    def col_for_code(blk, code):
+        return COLS_ORDER.index(code) + 1 if code in COLS_ORDER else None
+
+    def block_colspan(bl):
+        return len(make_block_ordered_cols(bl))
+
+    # Column widths to match HTML
+    _col_widths = {
+        'A':5.5, 'B':3.75, 'C':3.54, 'D':3.54, 'E':3.54, 'F':3.54, 'G':3.54, 'H':3.54, 'I':3.54,
+        'J':0.66, 'K':3.54, 'L':3.54, 'M':3.54, 'N':5.66, 'O':5.16,
+        'P':3.54, 'Q':3.54, 'R':3.54, 'S':3.75, 'T':3.54, 'U':3.54, 'V':3.54, 'W':3.54,
+        'X':0.66, 'Y':3.54, 'Z':3.54, 'AA':3.54, 'AB':5.66, 'AC':5.16,
+        'AD':3.54, 'AE':3.54, 'AF':3.54, 'AG':3.54, 'AH':3.54, 'AI':3.54, 'AJ':3.54, 'AK':3.75,
+        'AL':0.66, 'AM':3.54, 'AN':3.54, 'AO':3.54, 'AP':5.66,
+    }
+    for code, w in _col_widths.items():
+        if code in COLS_ORDER:
+            ws.column_dimensions[code].width = max(w * 0.75, 1.5)
+
     row_num = 0
-    for r in range(1, MAX_ROW + 1):
+    _last_dr_blk = {}
+    for seg in segments:
+        entries = seg['entries']
+        max_years = seg['max_years']
+        seg_start = row_num + 1
+
+        # Gap row between segments if needed
+        _need_gap = False
+        for bl in ('A', 'O', 'AC'):
+            if _last_dr_blk.get(bl, 0) == seg_start - 1:
+                if any(e['block'] == bl for e in entries):
+                    _need_gap = True
+                    break
+        if _need_gap:
+            row_num += 1
+            for ci in range(1, len(COLS_ORDER) + 1):
+                ws.cell(row=row_num, column=ci).border = no_border
+
         row_num += 1
-        empty = True
-        for ci, cl in enumerate(cols_letters, 1):
-            ref = cl + str(r)
-            if ref in merges and merges[ref].get('skip'):
-                continue
-            cs, rs = 1, 1
-            if ref in merges and not merges[ref].get('skip'):
-                cs = merges[ref]['cs']; rs = merges[ref]['rs']
-            val = data.get(ref, '')
-            bl = col_to_block[cl]
-            ct2 = col_types.get(cl, '')
-            rtype = ''
-            ct = None
-            if bl and (ct2 in ('den', 'cc') or cl == YEAR_COL.get(bl, '')):
-                ct = cell_types.get(ref)
-            if bl and r in block_row_type.get(bl, {}):
-                rtype = block_row_type[bl][r]
-            cell = ws.cell(row=row_num, column=ci)
-            cell.alignment = cen
-            cell.border = thin_black
-            if rtype == 'country':
-                cell.value = val
+        # Country header row — merge across block columns like HTML colspan
+        for bl in ('A', 'O', 'AC'):
+            bc = BLOCK_COLS[bl]
+            found = [e for e in entries if e['block'] == bl]
+            yr_col = col_for_code(bl, bc['year'])
+            span = block_colspan(bl)
+            if found:
+                c = found[0]['country']
+                start_col = yr_col
+                end_col = yr_col + span - 1
+                ws.merge_cells(start_row=row_num, start_column=start_col, end_row=row_num, end_column=end_col)
+                cell = ws.cell(row=row_num, column=start_col)
+                cell.value = c['name']
                 cell.fill = red_fill
                 cell.font = Font(bold=True, italic=True, size=10, name='Calibri')
                 cell.alignment = left_ali
-                if cs > 1 or rs > 1:
-                    ws.merge_cells(start_row=row_num, start_column=ci,
-                                   end_row=row_num + rs - 1, end_column=ci + cs - 1)
-                empty = False
-            elif rtype == 'colheader':
-                if val in ('1', '2'):
-                    val += ' \u20ac'
-                cell.value = val
-                cell.font = Font(size=8, name='Arial')
-                empty = False
-            elif rtype == 'data':
-                if ct == 'x':
-                    val = '\u2715'
-                year_ref = YEAR_COL[bl] + str(r) if bl else ''
-                is_gap = bool(bl and year_ref and year_ref not in data)
-                if ct2 in ('gap', 'inner-gap') or is_gap:
-                    cell.border = Border()
-                    continue
-                cell.value = val
-                cell.font = Font(size=8, name='Arial')
-                cell.alignment = cen
-                if ct and ct in cell_type_fills:
-                    cell.fill = cell_type_fills[ct]
-                elif ref in fills:
-                    cell.fill = cell_fill(fills[ref])
-                empty = False
+                cell.border = thin_black
+                # Apply border to all cells in merge range
+                for cc in range(start_col, end_col + 1):
+                    ws.cell(row=row_num, column=cc).border = thin_black
             else:
-                if ct2 in ('gap', 'inner-gap'):
-                    cell.border = Border()
-                    continue
-        if empty:
-            blank = True
-            for ci2, cl2 in enumerate(cols_letters, 1):
-                ref2 = cl2 + str(r)
-                bl2 = col_to_block[cl2]
-                ct2 = col_types.get(cl2, '')
-                if not bl2 or ct2 in ('gap', 'inner-gap'):
-                    continue
-                if ref2 in data and data[ref2].strip():
-                    blank = False
-                    break
-            if blank:
-                continue
+                for cc in range(yr_col, yr_col + span):
+                    ws.cell(row=row_num, column=cc).border = no_border
+            # Gap column after block
+            if bl == 'A':
+                ws.cell(row=row_num, column=col_for_code(None, GAP_COLS['A_O'])).border = no_border
+            elif bl == 'O':
+                ws.cell(row=row_num, column=col_for_code(None, GAP_COLS['O_AC'])).border = no_border
 
-    # Extension rows
-    for seg in segments:
-        s = seg['start']
-        all_ext = {}
-        for bl, cname in seg['entries']:
-            if not cname: continue
-            for ey in extensions.get(bl, {}).get(cname, []):
-                all_ext.setdefault(ey, []).append((bl, cname))
-        if not all_ext:
-            continue
-        seg_idx = next(i for i, (st, _) in enumerate(SEGMENTS) if st == s)
-        base_ext_row = EXT_OFFSET + s
-        for ext_idx, ey in enumerate(sorted(all_ext.keys(), key=lambda y: int(y) if y.isdigit() else y)):
-            row_num += 1
-            ext_row = base_ext_row + ext_idx
-            ext_blocks = set(bl for bl, _ in all_ext[ey])
-            for ci, cl in enumerate(cols_letters, 1):
-                bl2 = col_to_block[cl]
-                ct2 = col_types.get(cl, '')
+        row_num += 1
+        # Column header row
+        for bl in ('A', 'O', 'AC'):
+            bc = BLOCK_COLS[bl]
+            found = [e for e in entries if e['block'] == bl]
+            yr_col = col_for_code(bl, bc['year'])
+            for cl in make_block_ordered_cols(bl):
+                ci = col_for_code(bl, cl)
                 cell = ws.cell(row=row_num, column=ci)
-                cell.alignment = cen
-                cell.font = Font(size=8, name='Arial')
-                if ct2 in ('gap', 'inner-gap'):
-                    cell.border = Border()
-                    continue
-                if bl2 and bl2 in ext_blocks:
-                    if cl == YEAR_COL[bl2]:
-                        cell.value = ey
-                        cell.border = thin_black
-                    elif ct2 in ('den', 'cc'):
-                        ref = cl + str(ext_row)
-                        v = data.get(ref, '')
-                        cell.value = v
-                        cell.border = thin_black
-                        if ref in fills:
-                            cell.fill = cell_fill(fills[ref])
-                        ct = cell_types.get(ref)
-                        if ct and ct in cell_type_fills:
-                            cell.fill = cell_type_fills[ct]
+                dl = DENOM_LABEL.get(cl, '')
+                if cl == bc['year']:
+                    # Year connector — keep empty with no border, like HTML year-connector
+                    cell.border = thin_black
+                    cell.fill = PatternFill(fill_type=None)
+                elif cl == bc['igap']:
+                    cell.border = no_border
                 else:
-                    cell.border = Border()
+                    cell.value = (dl + ' \u20ac') if dl in ('1','2') else dl
+                    cell.font = Font(size=8, name='Arial')
+                    cell.alignment = cen
+                    cell.border = thin_black
+            if bl == 'A':
+                ws.cell(row=row_num, column=col_for_code(None, GAP_COLS['A_O'])).border = no_border
+            elif bl == 'O':
+                ws.cell(row=row_num, column=col_for_code(None, GAP_COLS['O_AC'])).border = no_border
+
+        # Data rows
+        for yr_idx in range(max_years):
+            row_num += 1
+            for bl in ('A', 'O', 'AC'):
+                bc = BLOCK_COLS[bl]
+                found = [e for e in entries if e['block'] == bl]
+                yr_col = col_for_code(bl, bc['year'])
+                if found:
+                    c = found[0]['country']
+                    cname = c['name']
+                    mints = c.get('mint_marks', [])
+                    yrs = found[0]['years']
+                    active_mint = mint_arg if mint_arg in mints else (mints[0] if mints else None)
+                    for cl in make_block_ordered_cols(bl):
+                        ci = col_for_code(bl, cl)
+                        cell = ws.cell(row=row_num, column=ci)
+                        cell.alignment = cen
+                        if cl == bc['year']:
+                            if yr_idx < len(yrs):
+                                cell.value = yrs[yr_idx]
+                                cell.font = Font(size=8, name='Arial')
+                                cell.fill = gray_fill
+                                cell.border = thin_black
+                            else:
+                                cell.border = no_border
+                        elif cl == bc['igap']:
+                            cell.border = no_border
+                        else:
+                            dk = make_denom_key(cl)
+                            if yr_idx < len(yrs):
+                                yr_val = yrs[yr_idx]
+                                if split_germany and cname == 'Deutschland':
+                                    cell.font = Font(size=8, name='Arial')
+                                    cell.border = thin_black
+                                else:
+                                    entry = get_coin(cname, yr_val, dk)
+                                    mval = ''
+                                    mct = ''
+                                    if mints and active_mint:
+                                        mentry = get_coin(cname, yr_val, dk, active_mint)
+                                        mval = coin_value(mentry)
+                                        mct = coin_cell_type(mentry)
+                                    val = mval if mval else coin_value(entry)
+                                    ct = mct if mct else coin_cell_type(entry)
+                                    if ct == 'x':
+                                        cell.value = '\u2715'
+                                    elif val:
+                                        cell.value = val
+                                    cell.font = Font(size=8, name='Arial')
+                                    cell.border = thin_black
+                                    if ct in _ct_fills:
+                                        cell.fill = _ct_fills[ct]
+                                    else:
+                                        bg = _compute_cell_color(cname, yr_val, dk, ct=ct)
+                                        if bg:
+                                            cell.fill = cell_fill(bg)
+                            else:
+                                cell.border = no_border
+                else:
+                    span = block_colspan(bl)
+                    for cc in range(yr_col, yr_col + span):
+                        ws.cell(row=row_num, column=cc).border = no_border
+                if bl == 'A':
+                    ws.cell(row=row_num, column=col_for_code(None, GAP_COLS['A_O'])).border = no_border
+                elif bl == 'O':
+                    ws.cell(row=row_num, column=col_for_code(None, GAP_COLS['O_AC'])).border = no_border
+
+        # Track last data row for gap detection
+        for bl in ('A', 'O', 'AC'):
+            found = [e for e in entries if e['block'] == bl]
+            if found and found[0]['years']:
+                _last_dr_blk[bl] = row_num
+
+    # ── Germany mint sections (split layout, 3+2 grid) ──
+    if split_germany:
+        germany = next((c for c in COUNTRIES if c['name'] == 'Deutschland'), None)
+        if germany:
+            bl = germany['block']
+            bc = BLOCK_COLS[bl]
+            mints = germany.get('mint_marks', [])
+            germany_years = get_years('Deutschland')
+            bl_cols = make_block_ordered_cols(bl)
+            bl_yr_col = col_for_code(bl, bc['year'])
+            bl_span = block_colspan(bl)
+
+            col_gap = 1
+            mint_width = bl_span
+            col_offsets = [1 - bl_yr_col, 1 - bl_yr_col + mint_width + col_gap, 1 - bl_yr_col + 2 * (mint_width + col_gap)]
+            rows_per_mint = 3 + len(germany_years)  # gap + header + col_header + data
+
+            # Top gap row
+            row_num += 1
+            grid_base = row_num
+
+            def _write_mint_grid_cell(mm, co, base_r):
+                # Gap row
+                for cl in bl_cols:
+                    ci = col_for_code(bl, cl) + co
+                    ws.cell(row=base_r, column=ci).border = no_border
+                # Country header
+                hr = base_r + 1
+                sc = bl_yr_col + co
+                ec = sc + mint_width - 1
+                ws.merge_cells(start_row=hr, start_column=sc, end_row=hr, end_column=ec)
+                cell = ws.cell(row=hr, column=sc)
+                cell.value = f'Deutschland \u2013 M\u00fcnzst\u00e4tte {mm}'
+                cell.fill = red_fill
+                cell.font = Font(bold=True, italic=True, size=10, name='Calibri')
+                cell.alignment = left_ali
+                cell.border = thin_black
+                for cc in range(sc, ec + 1):
+                    ws.cell(row=hr, column=cc).border = thin_black
+                # Column header
+                chr = base_r + 2
+                for cl in bl_cols:
+                    ci = col_for_code(bl, cl) + co
+                    cell = ws.cell(row=chr, column=ci)
+                    dl = DENOM_LABEL.get(cl, '')
+                    if cl == bc['year']:
+                        cell.border = thin_black
+                        cell.fill = PatternFill(fill_type=None)
+                    elif cl == bc['igap']:
+                        cell.border = no_border
+                    else:
+                        cell.value = (dl + ' \u20ac') if dl in ('1','2') else dl
+                        cell.font = Font(size=8, name='Arial')
+                        cell.alignment = cen
+                        cell.border = thin_black
+                # Data rows
+                for yi, yr_val in enumerate(germany_years):
+                    dr = base_r + 3 + yi
+                    for cl in bl_cols:
+                        ci = col_for_code(bl, cl) + co
+                        cell = ws.cell(row=dr, column=ci)
+                        cell.alignment = cen
+                        if cl == bc['year']:
+                            cell.value = yr_val
+                            cell.font = Font(size=8, name='Arial')
+                            cell.fill = gray_fill
+                            cell.border = thin_black
+                        elif cl == bc['igap']:
+                            cell.border = no_border
+                        else:
+                            dk = make_denom_key(cl)
+                            mentry = get_coin('Deutschland', yr_val, dk, mm)
+                            val = coin_value(mentry)
+                            ct = coin_cell_type(mentry)
+                            if ct == 'x':
+                                cell.value = '\u2715'
+                            elif val:
+                                cell.value = val
+                            cell.font = Font(size=8, name='Arial')
+                            cell.border = thin_black
+                            if ct in _ct_fills:
+                                cell.fill = _ct_fills[ct]
+                            else:
+                                bg = _compute_cell_color('Deutschland', yr_val, dk, mint=mm, ct=ct)
+                                if bg:
+                                    cell.fill = cell_fill(bg)
+
+            # Row 1: A, D, F
+            for idx, mm in enumerate(['A', 'D', 'F']):
+                _write_mint_grid_cell(mm, col_offsets[idx], grid_base)
+            # Row 2: G, J
+            row2_base = grid_base + rows_per_mint
+            for idx, mm in enumerate(['G', 'J']):
+                _write_mint_grid_cell(mm, col_offsets[idx], row2_base)
+
+            row_num = row2_base + rows_per_mint - 1
+
+    # Gap after last segment
+    row_num += 1
+    for ci in range(1, len(COLS_ORDER) + 1):
+        ws.cell(row=row_num, column=ci).border = no_border
 
     output = io.BytesIO()
     wb.save(output)
     output.seek(0)
-    return send_file(output,
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    return send_file(output, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                      as_attachment=True, download_name='muenzapp.xlsx')
 
+_DENOM_SORT = {d: i for i, d in enumerate(['1c','2c','5c','10c','20c','50c','1\u20ac','2\u20ac','CC1','CC2','CC3'])}
 
+def _coin_sort_key(item):
+    k = item[0]
+    country, year, denom = k.rsplit(':', 2)
+    try:
+        iy = int(year)
+    except ValueError:
+        iy = 9999
+    return (country, iy, _DENOM_SORT.get(denom, 99))
+
+@app.route('/api/export/data', methods=['GET'])
+def export_data():
+    out_coins = {}
+    for k, v in sorted(COINS.items(), key=_coin_sort_key):
+        entry = dict(v)
+        if k in MINTAGE:
+            entry['m'] = MINTAGE[k]
+        denom = k.rsplit(':', 2)[2]
+        if denom.startswith('CC'):
+            ccn = CC_NAMES.get(k)
+            if ccn:
+                entry['cn'] = ccn
+        out_coins[k] = entry
+    out_coins_mint = {}
+    for k, v in sorted(COINS_MINT.items(), key=_coin_sort_key):
+        entry = dict(v)
+        if k in MINTAGE_MINT:
+            entry['m'] = MINTAGE_MINT[k]
+        denom = k.rsplit(':', 2)[2]
+        if denom.startswith('CC'):
+            ccn = CC_NAMES.get(k)
+            if ccn:
+                entry['cn'] = ccn
+        out_coins_mint[k] = entry
+    payload = {
+        'coins': out_coins,
+        'coins_mint': out_coins_mint,
+        'extensions': EXTENSIONS,
+        'countries': COUNTRIES,
+        'country_years': COUNTRY_YEARS,
+    }
+    fname = f'muenzapp-backup-{datetime.date.today().isoformat()}.txt'
+    return (json.dumps(payload, ensure_ascii=False, indent=2),
+            200, {'Content-Type': 'text/plain; charset=utf-8', 'Content-Disposition': f'attachment; filename="{fname}"'})
+
+@app.route('/api/import/data', methods=['POST'])
+def import_data():
+    global doc, COINS, COINS_MINT, MINTAGE, MINTAGE_MINT, CC_NAMES, IMAGE_LINKS_MINT, COUNTRIES, COUNTRY_YEARS, EXTENSIONS, UNDO_STACK, REDO_STACK
+    raw = request.get_data(as_text=True)
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return jsonify({'ok': False, 'error': 'Ung\u00fcltiges JSON'}), 400
+    if not isinstance(payload, dict):
+        return jsonify({'ok': False, 'error': 'Erwartet ein JSON-Objekt'}), 400
+
+    _expected_types = {
+        'coins': dict, 'coins_mint': dict, 'mintage': dict, 'mintage_mint': dict,
+        'cc_coin_names': dict, 'image_links_mint': dict, 'fill_colors': dict,
+        'countries': list, 'country_years': dict, 'extensions': dict,
+    }
+    targets = ['coins','coins_mint','mintage','mintage_mint','cc_coin_names','image_links_mint','countries','country_years','extensions','fill_colors']
+    for k in payload:
+        if k not in targets:
+            return jsonify({'ok': False, 'error': f'Unbekannter Schl\u00fcssel: {k}'}), 400
+    for k in targets:
+        if k in payload:
+            expected = _expected_types.get(k)
+            if expected and not isinstance(payload[k], expected):
+                return jsonify({'ok': False, 'error': f'{k}: erwartet {expected.__name__}, bekam {type(payload[k]).__name__}'}), 400
+            doc[k] = payload[k]
+    doc['undo_stack'] = []
+    doc['redo_stack'] = []
+    COINS = doc.get('coins', {})
+    COINS_MINT = doc.get('coins_mint', {})
+    MINTAGE = doc.get('mintage', {})
+    MINTAGE_MINT = doc.get('mintage_mint', {})
+    CC_NAMES = doc.get('cc_coin_names', {})
+    IMAGE_LINKS_MINT = doc.get('image_links_mint', {})
+    FILL_COLORS = doc.get('fill_colors', {})
+    COUNTRIES = doc.get('countries', [])
+    COUNTRY_YEARS = doc.get('country_years', {})
+    EXTENSIONS = doc.get('extensions', {})
+    UNDO_STACK = doc.get('undo_stack', [])
+    REDO_STACK = doc.get('redo_stack', [])
+    # Extract mintage from coin entries (new-format export compatibility)
+    for k, v in COINS.items():
+        if isinstance(v, dict) and 'm' in v:
+            MINTAGE[k] = v['m']
+    for k, v in COINS_MINT.items():
+        if isinstance(v, dict) and 'm' in v:
+            MINTAGE_MINT[k] = v['m']
+    doc['mintage'] = MINTAGE
+    doc['mintage_mint'] = MINTAGE_MINT
+    # Extract CC names from coin entries (new-format export compatibility)
+    for k, v in COINS.items():
+        if isinstance(v, dict) and 'cn' in v:
+            CC_NAMES[k] = v['cn']
+    for k, v in COINS_MINT.items():
+        if isinstance(v, dict) and 'cn' in v:
+            CC_NAMES[k] = v['cn']
+    doc['cc_coin_names'] = CC_NAMES
+    global _COIN_YEARS
+    _COIN_YEARS = _build_coin_years_cache()
+    save_doc(doc)
+    return jsonify({'ok': True})
+
+
+# ─── Country CRUD ───
+
+@app.route('/api/countries', methods=['POST'])
+def create_country():
+    global COUNTRIES
+    data = request.get_json(silent=True) or {}
+    name = data.get('name', '').strip()
+    bl = data.get('block', 'A')
+    flag = data.get('flag', '')
+    if not name:
+        return jsonify({'error': 'Name required'}), 400
+    if any(c['name'] == name for c in COUNTRIES):
+        return jsonify({'error': 'Country already exists'}), 409
+    max_order = max((c.get('display_order', 0) for c in COUNTRIES), default=-1) + 1
+    new_c = {
+        'name': name,
+        'block': bl,
+        'all_blocks': [bl],
+        'flag': flag,
+        'mint_marks': data.get('mint_marks', []),
+        'image_name_en': data.get('image_name_en', ''),
+        'display_order': max_order,
+    }
+    COUNTRIES.append(new_c)
+    COUNTRY_YEARS[name] = []
+    save_all()
+    return jsonify({'ok': True, 'country': new_c})
+
+@app.route('/api/countries', methods=['GET'])
+def list_countries():
+    ordered = sorted(COUNTRIES, key=lambda c: c.get('display_order', 0))
+    return jsonify([{
+        'name': c['name'],
+        'block': c.get('block', 'A'),
+        'display_order': c.get('display_order', 0),
+        'flag': c.get('flag', ''),
+    } for c in ordered])
+
+@app.route('/api/countries/move-grid', methods=['POST'])
+def move_country_grid():
+    global COUNTRIES
+    data = request.get_json(silent=True) or {}
+    name = data.get('name')
+    direction = data.get('direction')
+    if not name or direction not in ('up', 'down'):
+        return jsonify({'error': 'Invalid request'}), 400
+
+    c = next((c for c in COUNTRIES if c['name'] == name), None)
+    if not c:
+        return jsonify({'error': 'Not found'}), 404
+
+    # Build sections using same greedy as compute_segments
+    ordered = sorted(COUNTRIES, key=lambda x: x.get('display_order', 0))
+    sections = []
+    for cc in ordered:
+        blk = cc.get('block', 'A')
+        if blk not in ('A', 'O', 'AC'):
+            continue
+        placed = False
+        for seg in sections:
+            if blk not in seg:
+                seg[blk] = cc['name']
+                placed = True
+                break
+        if not placed:
+            sections.append({blk: cc['name']})
+
+    c_block = c['block']
+    c_section_idx = None
+    for i, seg in enumerate(sections):
+        if seg.get(c_block) == c['name']:
+            c_section_idx = i
+            break
+    if c_section_idx is None:
+        return jsonify({'error': 'Country not in any section'}), 400
+
+    # Find target based on grid rules
+    target_name = None
+    if direction == 'up':
+        if c_block == 'A' and c_section_idx > 0:
+            target_name = sections[c_section_idx - 1].get('AC')
+        elif c_block == 'O':
+            target_name = sections[c_section_idx].get('A')
+        elif c_block == 'AC':
+            target_name = sections[c_section_idx].get('O')
+    else:  # down
+        if c_block == 'A':
+            target_name = sections[c_section_idx].get('O')
+        elif c_block == 'O':
+            target_name = sections[c_section_idx].get('AC')
+        elif c_block == 'AC' and c_section_idx < len(sections) - 1:
+            target_name = sections[c_section_idx + 1].get('A')
+
+    if not target_name:
+        return jsonify({'error': 'Cannot move further'}), 400
+
+    target = next((c2 for c2 in COUNTRIES if c2['name'] == target_name), None)
+    if not target:
+        return jsonify({'error': 'Target not found'}), 404
+
+    # Swap display_order AND block
+    c['display_order'], target['display_order'] = target['display_order'], c['display_order']
+    c['block'], target['block'] = target['block'], c['block']
+    for cc in (c, target):
+        ab = cc.get('all_blocks', [cc['block']])
+        if cc['block'] not in ab:
+            ab.append(cc['block'])
+        cc['all_blocks'] = ab
+    COUNTRIES.sort(key=lambda x: x.get('display_order', 0))
+    save_all()
+    return jsonify({'ok': True})
+
+@app.route('/api/countries/<name>', methods=['DELETE'])
+def delete_country(name):
+    global COUNTRIES, COINS, COINS_MINT, MINTAGE, MINTAGE_MINT, CC_NAMES
+    old_len = len(COUNTRIES)
+    COUNTRIES = [c for c in COUNTRIES if c['name'] != name]
+    if len(COUNTRIES) == old_len:
+        return jsonify({'error': 'Not found'}), 404
+    # Clean up related data
+    for k in list(COINS.keys()):
+        if k.startswith(name + ':'):
+            del COINS[k]
+    for k in list(COINS_MINT.keys()):
+        if k.startswith(name + ':'):
+            del COINS_MINT[k]
+    for k in list(MINTAGE.keys()):
+        if k.startswith(name + ':'):
+            del MINTAGE[k]
+    for k in list(MINTAGE_MINT.keys()):
+        if k.startswith(name + ':'):
+            del MINTAGE_MINT[k]
+    for k in list(CC_NAMES.keys()):
+        if k.startswith(name + ':'):
+            del CC_NAMES[k]
+    COUNTRY_YEARS.pop(name, None)
+    EXTENSIONS.pop(name, None)
+    save_all()
+    return jsonify({'ok': True})
+
+@app.route('/api/data', methods=['GET'])
+def get_data():
+    return jsonify({})  # Not used by frontend anymore
+
+
+# ─── Sync (mintage) ───
+
+@app.route('/api/sync', methods=['POST'])
+def api_sync():
+    try:
+        n = sync_mintage_from_sheet()
+        return jsonify({'ok': True, 'count': n})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+def sync_mintage_from_sheet():
+    global MINTAGE, MINTAGE_MINT, CC_NAMES
+    req = urllib.request.Request(SHEET_XLSX_URL, headers={'User-Agent': 'Mozilla/5.0'})
+    with urllib.request.urlopen(req, timeout=45) as resp:
+        raw = resp.read()
+    wb = load_workbook(io.BytesIO(raw), data_only=True)
+
+    tab_index = {}
+    _mint_tab_map = {}
+    for tab in wb.sheetnames:
+        ws = wb[tab]
+        hr = _find_header_row(ws)
+        col_map = _build_column_map(ws)
+        if not col_map:
+            continue
+        d = {}
+        for r in range(3, ws.max_row + 1):
+            yv = ws.cell(r, 2).value
+            try:
+                year = int(float(yv))
+            except (ValueError, TypeError):
+                continue
+            for (dl, cci), scol in col_map.items():
+                s = _sheet_cell_str(ws.cell(r, scol).value)
+                if s:
+                    d[(year, dl, cci)] = s
+        tab_index[tab] = d
+        parts = tab.rsplit(' ', 1)
+        if len(parts) == 2 and len(parts[1]) == 1 and parts[1].isalpha():
+            base, mint = parts
+            _mint_tab_map.setdefault(base, {})[mint.upper()] = tab
+
+    # Build English name -> country data
+    name_to_country = {}
+    for c in COUNTRIES:
+        eng = c.get('image_name_en', '')
+        if eng:
+            name_to_country[eng] = c
+
+    new_mintage = dict(MINTAGE)
+    new_mintage_mint = dict(MINTAGE_MINT)
+    new_cc_names = dict(CC_NAMES)
+
+    result = {}
+    result_mint = {}
+    for c in COUNTRIES:
+        cname = c['name']
+        bl = c['block']
+        eng = c.get('image_name_en', '')
+        if not eng:
+            continue
+        tab_name = eng
+        mints = c.get('mint_marks', [])
+        yrs = get_years(cname)
+        for yr in yrs:
+            if not yr.isdigit():
+                continue
+            year_int = int(yr)
+            for dk in ['1c','2c','5c','10c','20c','50c','1\u20ac','2\u20ac']:
+                ck = coin_key(cname, yr, dk)
+                if tab_name in tab_index:
+                    val = tab_index[tab_name].get((year_int, dk, 0))
+                    if val:
+                        new_mintage[ck] = val
+                if tab_name in _mint_tab_map:
+                    for mint, mtab in _mint_tab_map[tab_name].items():
+                        if mtab in tab_index:
+                            mval = tab_index[mtab].get((year_int, dk, 0))
+                            if mval:
+                                new_mintage_mint[ck + ':' + mint] = mval
+            # CC columns
+            for cci in [1, 2, 3]:
+                dk = f'CC{cci}'
+                ck = coin_key(cname, yr, dk)
+                if tab_name in tab_index:
+                    val = tab_index[tab_name].get((year_int, 'CC', cci))
+                    if val:
+                        new_mintage[ck] = val
+                if tab_name in _mint_tab_map:
+                    for mint, mtab in _mint_tab_map[tab_name].items():
+                        if mtab in tab_index:
+                            mval = tab_index[mtab].get((year_int, 'CC', cci))
+                            if mval:
+                                new_mintage_mint[ck + ':' + mint] = mval
+
+    # CC names
+    _cc_name_headers = {
+        'Commemorative Coin 1': 1, 'Commemorative Coin 2': 2, 'Commemorative Coin 3': 3,
+        'Common-Issue Commemorative': 3, 'Commemorative coin 1': 1, 'Commemorative coin 2': 2,
+        'Commemorative coin 3': 3, 'Common-issue commemorative': 3}
+    _cc_tab_names = {}
+    for tab in wb.sheetnames:
+        effective_tab = tab
+        parts = tab.rsplit(' ', 1)
+        if len(parts) == 2 and len(parts[1]) == 1 and parts[1].isalpha():
+            effective_tab = parts[0]
+            if effective_tab in _cc_tab_names:
+                continue
+        ws = wb[tab]
+        hr = _find_header_row(ws)
+        name_cols = {}
+        for c in range(1, ws.max_column + 1):
+            v = ws.cell(hr, c).value
+            if isinstance(v, str) and v.strip() in _cc_name_headers:
+                name_cols[_cc_name_headers[v.strip()]] = c
+        if not name_cols:
+            continue
+        d = {}
+        for r in range(3, ws.max_row + 1):
+            yv = ws.cell(r, 2).value
+            try:
+                year = int(float(yv))
+            except (ValueError, TypeError):
+                continue
+            for cci, scol in name_cols.items():
+                v = ws.cell(r, scol).value
+                if v and isinstance(v, str) and v.strip():
+                    stripped = v.strip()
+                    if stripped not in ('N/A', 'n/a', 'N / A', 'N.A.', '-', '???', '?'):
+                        d[(year, cci)] = stripped
+        if d:
+            _cc_tab_names[effective_tab] = d
+    for c in COUNTRIES:
+        cname = c['name']
+        eng = c.get('image_name_en', '')
+        if not eng or eng not in _cc_tab_names:
+            continue
+        cc_data = _cc_tab_names[eng]
+        yrs = get_years(cname)
+        for yr in yrs:
+            if not yr.isdigit():
+                continue
+            for cci in [1, 2, 3]:
+                name_val = cc_data.get((int(yr), cci))
+                if name_val:
+                    new_cc_names[coin_key(cname, yr, f'CC{cci}')] = name_val
+
+    MINTAGE.clear()
+    MINTAGE.update(new_mintage)
+    MINTAGE_MINT.clear()
+    MINTAGE_MINT.update(new_mintage_mint)
+    CC_NAMES.clear()
+    CC_NAMES.update(new_cc_names)
+    save_all()
+    return len(new_mintage)
+
+
+def _find_header_row(ws):
+    _header_map = {
+        '1 cent': ('1c',0), '1 cents': ('1c',0), '2 cent': ('2c',0), '2 cents': ('2c',0),
+        '5 cent': ('5c',0), '5 cents': ('5c',0), '10 cent': ('10c',0), '10 cents': ('10c',0),
+        '20 cent': ('20c',0), '20 cents': ('20c',0), '50 cent': ('50c',0), '50 cents': ('50c',0),
+        '1 Euro': ('1\u20ac',0), '1 euro': ('1\u20ac',0), '2 Euro': ('2\u20ac',0), '2 Euros': ('2\u20ac',0), '2 euros': ('2\u20ac',0),
+        'CC 1': ('CC',1), 'CC1': ('CC',1), 'CC 2': ('CC',2), 'CC2': ('CC',2),
+        'CC 3': ('CC',3), 'CC3': ('CC',3), 'CC Common': ('CC',3), 'CCC': ('CC',3),}
+    for r in range(1, 6):
+        for c in range(1, ws.max_column + 1):
+            v = ws.cell(r, c).value
+            if isinstance(v, str) and v.strip() in _header_map:
+                return r
+    return 2
+
+def _build_column_map(ws):
+    hr = _find_header_row(ws)
+    _header_map = {
+        '1 cent': ('1c',0), '1 cents': ('1c',0), '2 cent': ('2c',0), '2 cents': ('2c',0),
+        '5 cent': ('5c',0), '5 cents': ('5c',0), '10 cent': ('10c',0), '10 cents': ('10c',0),
+        '20 cent': ('20c',0), '20 cents': ('20c',0), '50 cent': ('50c',0), '50 cents': ('50c',0),
+        '1 Euro': ('1\u20ac',0), '1 euro': ('1\u20ac',0), '2 Euro': ('2\u20ac',0), '2 Euros': ('2\u20ac',0), '2 euros': ('2\u20ac',0),
+        'CC 1': ('CC',1), 'CC1': ('CC',1), 'CC 2': ('CC',2), 'CC2': ('CC',2),
+        'CC 3': ('CC',3), 'CC3': ('CC',3), 'CC Common': ('CC',3), 'CCC': ('CC',3),}
+    col_map = {}
+    for c in range(1, ws.max_column + 1):
+        v = ws.cell(hr, c).value
+        if isinstance(v, str) and v.strip() in _header_map:
+            col_map[_header_map[v.strip()]] = c
+    return col_map
+
+def _sheet_cell_str(v):
+    if v is None:
+        return ''
+    if isinstance(v, bool):
+        return str(v)
+    if isinstance(v, float):
+        return str(int(v)) if v == int(v) else str(v)
+    if isinstance(v, int):
+        return str(v)
+    return str(v).strip()
+
+
+# ─── Add the legend panel, info modal, sync modal HTML (included in generate_html) ───
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 3000))
     debug = os.environ.get('FLASK_DEBUG', '').lower() in ('1', 'true')
     app.run(host='0.0.0.0', port=port, debug=debug)
