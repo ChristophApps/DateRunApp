@@ -22,31 +22,91 @@
     return mint ? path + '?mint=' + encodeURIComponent(mint) : path;
   }
 
+  // ───── Handy-Ansicht: jedes Land untereinander ─────
+  var MOBILE_KEY = 'muenzapp:mobile';
+  var mobilePref = null;
+  try { mobilePref = localStorage.getItem(MOBILE_KEY); } catch(e) {}
+  if (mobilePref === null) {
+    var mc = document.cookie.match(/(?:^|; )muenzapp_mobile=([01])/);
+    if (mc) mobilePref = mc[1];
+  }
+  // Ohne eigene Wahl: auf kleinen Bildschirmen automatisch an
+  var onMintSheet = !!document.getElementById('mintSheet');
+  if (onMintSheet) document.body.classList.add('on-sheet');
+  var mobileOn = !onMintSheet && (mobilePref === '1' || (mobilePref === null && window.innerWidth < 700));
+
+  function buildMobileView() {
+    var grid = document.getElementById('grid');
+    if (!grid) return;
+    // Zellen nach Land und Zeile sammeln (Reihenfolge wie auf der Seite)
+    var byCountry = new Map();
+    grid.querySelectorAll('td[data-cid]').forEach(function(td) {
+      var cid = td.getAttribute('data-cid');
+      if (!byCountry.has(cid)) byCountry.set(cid, new Map());
+      var rows = byCountry.get(cid);
+      if (!rows.has(td.parentNode)) rows.set(td.parentNode, []);
+      rows.get(td.parentNode).push(td);
+    });
+    var widths = [13].concat([7.5,7.5,7.5,7.5,7.5,7.5,7.5,7.5], [3], [8,8,8]);
+    var list = document.createElement('div');
+    list.id = 'mobileList';
+    byCountry.forEach(function(rows) {
+      var tbl = document.createElement('table');
+      tbl.className = 'm-table';
+      var cg = document.createElement('colgroup');
+      widths.forEach(function(w) { var c = document.createElement('col'); c.style.width = w + '%'; cg.appendChild(c); });
+      tbl.appendChild(cg);
+      rows.forEach(function(tds) {
+        // Zeilen ohne Jahr (nur Lücke) weglassen
+        if (tds.every(function(td) { return td.classList.contains('inner-gap'); })) return;
+        var tr = document.createElement('tr');
+        tds.forEach(function(td) { tr.appendChild(td); });
+        tbl.appendChild(tr);
+      });
+      var card = document.createElement('div');
+      card.className = 'm-card';
+      card.appendChild(tbl);
+      list.appendChild(card);
+    });
+    grid.parentNode.insertBefore(list, grid);
+    grid.style.display = 'none';
+    document.body.classList.add('mobile-view');
+  }
+  if (mobileOn) buildMobileView();
+
+  (function() {
+    var item = document.getElementById('mobileToggle');
+    if (!item) return;
+    if (onMintSheet) { item.style.display = 'none'; return; }
+    item.classList.toggle('on', mobileOn);
+    item.setAttribute('aria-checked', mobileOn ? 'true' : 'false');
+    item.addEventListener('click', function(e) {
+      e.stopPropagation();
+      item.classList.toggle('on', !mobileOn);
+      var v = mobileOn ? '0' : '1';
+      try { localStorage.setItem(MOBILE_KEY, v); } catch(e) {}
+      document.cookie = 'muenzapp_mobile=' + v + '; max-age=31536000; path=/; SameSite=Lax';
+      location.reload();
+    });
+  })();
+
   // ───── Legend panel toggle ─────
-  document.getElementById('moreLegend').addEventListener('click', function() {
-    var panel = document.getElementById('legendPanel');
-    panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+  function showModal(id, overlayId, on) {
+    document.getElementById(id).style.display = on ? 'block' : 'none';
+    document.getElementById(overlayId).style.display = on ? 'block' : 'none';
+  }
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') showModal('reorderModal', 'rmOverlay', false);
   });
 
-  // ───── Missing list modal ─────
-
-  // ───── Missing-coin highlight mode ─────
-  let missingMode = false;
-  function updateMissingCell(td) {
-    if (!missingMode) { td.classList.remove('cell-missing', 'cell-has'); return; }
-    if (td.getAttribute('data-xlocked')) { td.classList.remove('cell-missing'); td.classList.add('cell-has'); return; }
-    var val = (td.textContent || '').replace(/\u00a0/g, '').trim();
-    if (!val) { td.classList.add('cell-missing'); td.classList.remove('cell-has'); }
-    else { td.classList.remove('cell-missing'); td.classList.add('cell-has'); }
-  }
-  function refreshMissingHighlight() {
-    document.querySelectorAll('[data-ref]').forEach(updateMissingCell);
-  }
-  document.getElementById('moreMissing').addEventListener('click', function() {
-    missingMode = !missingMode;
-    document.body.classList.toggle('missing-mode', missingMode);
-    refreshMissingHighlight();
-  });
+  // Beim Bearbeiten: Info, Handy, Menü und Länder-Info sperren
+  document.addEventListener('click', function(e) {
+    if (!document.body.classList.contains('edit-mode')) return;
+    if (e.target.closest('#sumBtn, #mobileToggle, #moreBtn, .country-info, .c-mint-all')) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, true);
 
   // ───── Edit mode ─────
   let editMode = false;
@@ -56,15 +116,33 @@
   let dragCells = null;
   let editPopupRefs = null;
 
+  function setEditHint() {
+    var hint = document.getElementById('editHint');
+    var cancel = document.getElementById('editCancelCopy');
+    if (copySourceRef) {
+      hint.textContent = 'Kopieren: Tippe auf die Felder, wo es hin soll (oder ziehe dar\u00fcber).';
+      cancel.style.display = '';
+    } else {
+      hint.textContent = 'Tippen = M\u00fcnze \u00e4ndern \u00b7 Doppelt tippen = zum Kopieren w\u00e4hlen \u00b7 Ziehen = mehrere w\u00e4hlen';
+      cancel.style.display = 'none';
+    }
+  }
+
   document.getElementById('editBtn').addEventListener('click', function() {
     editMode = !editMode;
     this.classList.toggle('active', editMode);
+    this.innerHTML = editMode ? '\u2713<span class="tb-word"> Fertig</span>' : '\uD83D\uDCDD<span class="tb-word"> Bearbeiten</span>';
     document.body.classList.toggle('edit-mode', editMode);
     var hint = document.getElementById('editHint');
     if (editMode) {
-      hint.textContent = '\uD83D\uDCDD Einfachklick = Popup, Doppelklick = Quelle w\u00e4hlen';
+      // Alles andere zu: Menü, Info und Länder-Popups schließen
+      document.getElementById('moreDropdown').style.display = 'none';
+      document.getElementById('sumBreakdown').style.display = 'none';
+      document.getElementById('sumOverlay').style.display = 'none';
+      document.querySelectorAll('.country-popup').forEach(function(el) { el.remove(); });
       hint.classList.add('show');
       copySourceRef = null;
+      setEditHint();
       document.querySelectorAll('.edit-source, .edit-target').forEach(function(el) {
         el.classList.remove('edit-source', 'edit-target');
       });
@@ -76,6 +154,12 @@
         el.classList.remove('edit-source', 'edit-target');
       });
     }
+  });
+
+  document.getElementById('editCancelCopy').addEventListener('click', function() {
+    document.querySelectorAll('.edit-source').forEach(function(el) { el.classList.remove('edit-source'); });
+    copySourceRef = null;
+    setEditHint();
   });
 
   // ───── Drag: copy-paste (source selected) or batch select (no source) ─────
@@ -178,7 +262,6 @@
             td.textContent = srcText;
             td.setAttribute('data-vp-val', srcText);
           }
-          updateMissingCell(td);
         });
         refreshBreakdown();
         refreshUndoPreview();
@@ -193,14 +276,14 @@
     if (copySourceRef === ref) {
       copySourceRef = null;
       td.classList.remove('edit-source');
-      document.getElementById('editHint').textContent = '\uD83D\uDCDD Einfachklick = Popup, Doppelklick = Quelle w\u00e4hlen';
+      setEditHint();
       return;
     }
     hideEditPopup();
     document.querySelectorAll('.edit-source').forEach(function(el) { el.classList.remove('edit-source'); });
     copySourceRef = ref;
     td.classList.add('edit-source');
-    document.getElementById('editHint').textContent = 'Quelle: ' + ref + ' \u2014 Klick = Kopieren, Drag = Bereich kopieren';
+    setEditHint();
   }
 
   function hexToRgb(hex) {
@@ -210,12 +293,12 @@
 
   // ───── Edit popup ─────
   var POPUP_COLORS = [
-    {type:'green',  color:'#C5DEB5', title:'>5 Mio.'},
-    {type:'blue',   color:'#8EAADB', title:'>2-5 Mio.'},
-    {type:'orange', color:'#FF8C42', title:'>1-2 Mio.'},
-    {type:'yellow', color:'#FFE598', title:'\u22641 Mio.'},
-    {type:'nifc',   color:'#FFC7CE', title:'NIFC'},
-    {type:'x',      color:'#FFC7CE', title:'nicht gepr\u00e4gt'},
+    {type:'green',  color:'#C5DEB5', title:'\u00fcber 5 Mio.'},
+    {type:'blue',   color:'#8EAADB', title:'2\u20135 Mio.'},
+    {type:'orange', color:'#FF8C42', title:'1\u20132 Mio.'},
+    {type:'yellow', color:'#FFE598', title:'bis 1 Mio.'},
+    {type:'nifc',   color:'#FFC7CE', title:'NIFC (nicht f\u00fcr Umlauf)'},
+    {type:'x',      color:'#FFC7CE', title:'\u2715 nie gepr\u00e4gt'},
     {type:'nodata', color:'#fff',    title:'unbekannt'},
   ];
   var popupEl = null;
@@ -256,23 +339,26 @@
     var val = singleCell ? (firstTd.getAttribute('data-vp-val') || firstTd.textContent.trim()) : '';
     var colorsHtml = POPUP_COLORS.map(function(c) {
       var active = (c.type === popupSelectedType) || (c.type === 'nodata' && !popupSelectedType);
-      var label = c.type === 'x' ? '\u2715' : '';
-      return `<span class="popup-color-btn${active ? ' active' : ''}" data-ctype="${c.type}"` +
-        ` style="background:${c.color}${label ? ';display:inline-flex;align-items:center;justify-content:center;font-weight:bold;color:#000;font-size:7pt' : ''}"` +
-        ` title="${c.title}">${label}</span>`;
+      return `<span class="popup-color-btn${active ? ' active' : ''}" data-ctype="${c.type}" title="${c.title}">` +
+        `<span class="pc-dot" style="background:${c.color}"></span>${c.title}</span>`;
     }).join('');
     popupEl.innerHTML = `<div class="popup-title">${title}</div>` +
       `<input type="text" id="popupInput" value="${val.replace(/"/g, '&quot;')}" placeholder="M\u00fcnztext (\u2714, 0, 1\u00b0...)">` +
+      `<div class="popup-colors-head">Farbe = wie viele gepr\u00e4gt wurden (Auflage)</div>` +
       `<div class="popup-colors">${colorsHtml}</div>` +
       '<button id="popupSave">Speichern</button>';
     var lastRef = Array.from(refs)[refs.size - 1];
     var lastTd = document.querySelector('[data-ref="' + lastRef + '"]');
-    if (lastTd) {
-      var rect = lastTd.getBoundingClientRect();
-      popupEl.style.left = Math.min(rect.left, window.innerWidth - 230) + 'px';
-      popupEl.style.top = (rect.bottom + 4) + 'px';
-    }
     popupEl.style.display = 'block';
+    if (lastTd) {
+      // Neben der Zelle zeigen, aber immer ganz im Bild
+      var rect = lastTd.getBoundingClientRect();
+      var pw = popupEl.offsetWidth, ph = popupEl.offsetHeight;
+      var top = rect.bottom + 4;
+      if (top + ph > window.innerHeight - 8) top = Math.max(8, rect.top - ph - 4);
+      popupEl.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - pw - 8)) + 'px';
+      popupEl.style.top = top + 'px';
+    }
     var inp = document.getElementById('popupInput');
     if (inp) { inp.focus(); inp.select(); }
     popupEl.querySelectorAll('.popup-color-btn').forEach(function(btn) {
@@ -337,7 +423,6 @@
             td.textContent = val;
             td.setAttribute('data-vp-val', val);
           }
-          updateMissingCell(td);
         });
         refreshBreakdown();
         refreshUndoPreview();
@@ -368,7 +453,7 @@
         var td = document.querySelector('[data-ref="' + copySourceRef + '"]');
         if (td) td.classList.remove('edit-source');
         copySourceRef = null;
-        document.getElementById('editHint').textContent = '\uD83D\uDCDD Einfachklick = Popup, Doppelklick = Quelle w\u00e4hlen';
+        setEditHint();
         e.preventDefault();
       }
     }
@@ -433,12 +518,12 @@
 
   // ───── Info modal color picker ─────
   const INFO_COLOR_ITEMS = [
-    {type:'green',  label:'>5 Mio',     color:'#C5DEB5'},
-    {type:'blue',   label:'>2-5 Mio',   color:'#8EAADB'},
-    {type:'orange', label:'>1-2 Mio',   color:'#FF8C42'},
-    {type:'yellow', label:'≤1 Mio',     color:'#FFE598'},
-    {type:'nifc',   label:'NIFC',       color:'#FFC7CE'},
-    {type:'x',      label:'nicht geprägt', color:'#FFC7CE'},
+    {type:'green',  label:'\u00fcber 5 Mio.', color:'#C5DEB5'},
+    {type:'blue',   label:'2\u20135 Mio.',   color:'#8EAADB'},
+    {type:'orange', label:'1\u20132 Mio.',   color:'#FF8C42'},
+    {type:'yellow', label:'bis 1 Mio.',      color:'#FFE598'},
+    {type:'nifc',   label:'NIFC (nicht f\u00fcr Umlauf)', color:'#FFC7CE'},
+    {type:'x',      label:'\u2715 nie gepr\u00e4gt', color:'#FFC7CE'},
     {type:'nodata', label:'unbekannt',   color:'#fff'},
   ];
   function buildInfoColorPicker(currentType) {
@@ -447,20 +532,16 @@
     var picker = document.getElementById('infoColorPicker');
     picker.innerHTML = INFO_COLOR_ITEMS.map(function(item) {
       var isCur = (item.type === currentType) || (item.type === 'nodata' && !currentType);
-      return `<span class="info-color-btn" data-icolor="${item.type}" title="${item.label}"` +
-        ` style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;border:1px solid #aaa;border-radius:3px;padding:2px 5px;font-size:7pt;${isCur ? 'outline:2px solid #1a73e8;outline-offset:1px;' : ''}">` +
-        `<span style="display:inline-block;width:10px;height:10px;background:${item.color};border:1px solid #888;flex-shrink:0"></span>${item.label}</span>`;
+      return `<span class="info-color-btn${isCur ? ' cur' : ''}" data-icolor="${item.type}" title="${item.label}">` +
+        `<span class="info-color-swatch" style="background:${item.color}"></span>${item.label}</span>`;
     }).join('');
     picker.querySelectorAll('.info-color-btn').forEach(function(btn) {
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
         var t = this.getAttribute('data-icolor');
         infoColorType = (t === 'nodata') ? '' : t;
-        picker.querySelectorAll('.info-color-btn').forEach(function(b) {
-          b.style.outline = ''; b.style.outlineOffset = '';
-        });
-        this.style.outline = '2px solid #1a73e8';
-        this.style.outlineOffset = '1px';
+        picker.querySelectorAll('.info-color-btn').forEach(function(b) { b.classList.remove('cur'); });
+        this.classList.add('cur');
       });
     });
   }
@@ -471,31 +552,41 @@
   function infoRenderEntries() {
     var entriesDiv = document.getElementById('infoCoinEntries');
     var addDiv = document.getElementById('infoCoinAdd');
-    if (infoCoinEntries.length) {
-      entriesDiv.innerHTML = infoCoinEntries.map(function(e, i) {
-        var inner;
-        if (e.text) {
-          inner = `<span class="coin-entry-quality">${htmlEsc(e.text)}</span>`;
-        } else {
-          var ql = QUALITY_LABELS[e.q] || e.q;
-          var sl = SOURCE_LABELS[e.s] !== undefined ? SOURCE_LABELS[e.s] : 'Selbst gesammelt';
-          inner = `<span class="coin-entry-quality">${ql}</span> &mdash; <span class="coin-entry-source">${sl}</span>`;
-        }
-        return `<div class="coin-entry">${inner}<span class="vp-entry-del" data-idx="${i}">&times;</span></div>`;
-      }).join('');
-      entriesDiv.querySelectorAll('.vp-entry-del').forEach(function(el) {
-        el.addEventListener('click', function(e) {
-          e.stopPropagation();
-          var idx = parseInt(this.getAttribute('data-idx'), 10);
-          infoCoinEntries.splice(idx, 1);
-          infoRenderEntries();
-        });
+    var n = infoCoinEntries.length;
+    // Überschrift: Habe ich die Münze?
+    document.getElementById('ownHead').innerHTML = n
+      ? '🪙 In meiner Sammlung: <b>' + n + (n === 1 ? ' Münze' : ' Münzen') + '</b>'
+      : 'Noch nicht in meiner Sammlung';
+    document.getElementById('ownBox').classList.toggle('own-none', !n);
+    var addLabel = addDiv.querySelector('.info-add-label');
+    if (addLabel) addLabel.textContent = n ? 'Weitere Münze hinzufügen:' : 'Münze zur Sammlung hinzufügen:';
+    var SOURCE_ICON = {'°': '👥', 'o': '👥', '*': '🛒', '': '🙋'};
+    entriesDiv.innerHTML = infoCoinEntries.map(function(e, i) {
+      var badge, title, sub;
+      if (e.text) {
+        badge = '✏️';
+        title = htmlEsc(e.text);
+        sub = 'eigener Text';
+      } else {
+        var src = SOURCE_LABELS[e.s] !== undefined ? e.s : '';
+        badge = htmlEsc(e.q + (src === 'o' ? '\u00b0' : src));   // z.B. 0*, 1°
+        title = QUALITY_LABELS[e.q] || htmlEsc(e.q);
+        sub = SOURCE_ICON[src] + ' ' + SOURCE_LABELS[src];
+      }
+      return '<div class="own-coin"><span class="own-num">#' + (i + 1) + '</span>' +
+        '<span class="own-q q-' + htmlEsc(e.q || 'x') + '">' + badge + '</span>' +
+        '<div class="own-text"><b>' + title + '</b><span>' + sub + '</span></div>' +
+        '<span class="vp-entry-del" data-idx="' + i + '" title="Diese Münze aus der Sammlung entfernen">&times;</span></div>';
+    }).join('');
+    entriesDiv.querySelectorAll('.vp-entry-del').forEach(function(el) {
+      el.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var idx = parseInt(this.getAttribute('data-idx'), 10);
+        infoCoinEntries.splice(idx, 1);
+        infoRenderEntries();
       });
-      addDiv.style.display = 'block';
-    } else {
-      entriesDiv.innerHTML = '<div class="vp-empty">Keine Münzen erfasst</div>';
-      addDiv.style.display = 'block';
-    }
+    });
+    addDiv.style.display = 'block';
   }
 
   function htmlEsc(s) {
@@ -506,7 +597,14 @@
 
   function showInfoModal(ref, country, year, denom, mintage, link, cellVal, ccName, cellType) {
     infoRef = ref;
-    document.getElementById('infoTitle').textContent = country + ' ' + year + ' ' + denom;
+    var infoTd = document.querySelector('[data-ref="' + ref + '"]');
+    var infoMint = infoTd ? infoTd.getAttribute('data-mint') : '';
+    if (infoTd && infoTd.getAttribute('data-year-label')) year = infoTd.getAttribute('data-year-label');
+    document.getElementById('infoTitle').textContent = country + ' ' + year + ' ' + denom + (infoMint ? ' \u2013 ' + infoMint : '');
+    var noteBox = document.getElementById('infoNote');
+    var noteTxt = infoTd ? (infoTd.getAttribute('data-note') || '') : '';
+    noteBox.innerHTML = noteTxt ? '<b>Notiz aus dem Google Sheet</b><br>' + htmlEsc(noteTxt) : '';
+    noteBox.style.display = noteTxt ? '' : 'none';
     var imgEl = document.getElementById('infoCoinImg');
     var linkEl = document.getElementById('infoCoinLink');
     if (link) {
@@ -645,7 +743,6 @@
             td.contentEditable = 'false';
           }
           td.setAttribute('data-ct', newCt);
-          updateMissingCell(td);
         }
         var ctBody = {}; ctBody[infoRef] = newCt || 'nodata';
         fetch(apiUrl('/api/cell-types'), {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(ctBody)})
@@ -664,7 +761,6 @@
         if (td) {
           td.textContent = newVal;
           td.setAttribute('data-vp-val', newVal);
-          updateMissingCell(td);
         }
         var cellBody = {};
         cellBody[infoRef] = newVal;
@@ -719,7 +815,7 @@
     infoSaveStep(0);
   });
 
-  document.querySelectorAll('[data-ref]').forEach(function(td) {
+  function bindCell(td) {
     td.contentEditable = 'false';
     td.addEventListener('click', function(e) {
       if (!this.getAttribute('data-ref')) return;
@@ -791,62 +887,235 @@
       }
       showInfoModal(ref, country, year, denom, mintage, link, cellVal, ccName, cellType);
     });
-  });
+  }
+  document.querySelectorAll('[data-ref]').forEach(bindCell);
 
   // Sync button — re-import mintage from the Google Sheet
-  document.getElementById('moreSync').addEventListener('click', function() {
-    document.getElementById('syncOverlay').style.display = 'block';
-    document.getElementById('syncModal').style.display = 'block';
+  // ───── Auflagezahlen laden: erst ansehen, dann übernehmen ─────
+  var syncChanges = [];
+  var syncMissing = [];
+  var syncChecks = [];
+  // Prüfung: passen App und Google Sheet zusammen?
+  function renderSyncChecks() {
+    var box = document.getElementById('syncChecks');
+    var errs = syncChecks.filter(function(c) { return c.level === 'error'; });
+    var warns = syncChecks.filter(function(c) { return c.level === 'warn'; });
+    if (!syncChecks.length) {
+      box.innerHTML = '<div class="sync-check ok">\u2713 Pr\u00fcfung: Alles passt \u2013 L\u00e4nder, Spalten, Jahre und Extra-Zeilen stimmen mit dem Google Sheet \u00fcberein.</div>';
+      return;
+    }
+    var list = function(xs) { return '<ul>' + xs.map(function(c) { return '<li>' + htmlEsc(c.text) + '</li>'; }).join('') + '</ul>'; };
+    box.innerHTML = (errs.length ? '<div class="sync-check err"><b>\u26d4 Pr\u00fcfung: ' + errs.length + ' Problem' + (errs.length > 1 ? 'e' : '') + '</b>' + list(errs) + '</div>' : '') +
+      (warns.length ? '<div class="sync-check warn"><b>\u26a0\ufe0f Bitte pr\u00fcfen (' + warns.length + ')</b>' + list(warns) + '</div>' : '');
+  }
+  function syncStep(n) {
+    document.getElementById('syncStep1').style.display = n === 1 ? '' : 'none';
+    document.getElementById('syncStep2').style.display = n === 2 ? '' : 'none';
+  }
+  function showSync(on) {
+    document.getElementById('syncModal').style.display = on ? 'block' : 'none';
+    document.getElementById('syncOverlay').style.display = on ? 'block' : 'none';
+    if (on) syncStep(1);
+  }
+  document.getElementById('editSync').addEventListener('click', function() { showSync(true); });
+  document.getElementById('syncOverlay').addEventListener('click', function() { showSync(false); });
+  document.getElementById('syncCancel').addEventListener('click', function() { showSync(false); });
+  document.getElementById('syncClose').addEventListener('click', function() { showSync(false); });
+  document.getElementById('syncBack').addEventListener('click', function() { syncStep(1); });
+
+  function colorDot(hex) {
+    return '<span class="pc-dot" style="background:#' + (hex || 'fff') + '"></span>';
+  }
+  var COLOR_WORD = {green: 'über 5 Mio.', blue: '2–5 Mio.', orange: '1–2 Mio.', yellow: 'bis 1 Mio.', nifc: 'NIFC', x: '✕ nie geprägt', nodata: 'unbekannt'};
+  var syncTab = 'auflage';
+  var SYNC_TABS = [['neu', 'Neue Zeilen'], ['auflage', 'Auflagezahlen'], ['farbe', 'Farben'], ['name', 'Namen'], ['notiz', 'Notizen']];
+  // Sortieren nach Land, Jahr oder Münze (Klick auf die Spalte, nochmal = umgekehrt)
+  var syncSort = {col: 'land', dir: 1};
+  var COIN_ORDER = ['1c', '2c', '5c', '10c', '20c', '50c', '1\u20ac', '2\u20ac', 'CC1', 'CC2', 'CC3'];
+  function yearNum(c) { if (c.year_num !== undefined) return c.year_num; var m = /^(\d+)/.exec(c.year || ''); return m ? +m[1] : 9999; }
+  function syncOrder() {
+    var idx = syncChanges.map(function(_, i) { return i; });
+    var col = syncSort.col, dir = syncSort.dir;
+    idx.sort(function(a, b) {
+      var x = syncChanges[a], y = syncChanges[b], r = 0;
+      var byLand = a - b;  // Server liefert schon in Länder-Reihenfolge
+      var byYear = yearNum(x) - yearNum(y) || (x.year < y.year ? -1 : x.year > y.year ? 1 : 0);
+      var byCoin = COIN_ORDER.indexOf(x.denom) - COIN_ORDER.indexOf(y.denom) || (x.mint < y.mint ? -1 : x.mint > y.mint ? 1 : 0);
+      if (col === 'jahr') r = byYear || byCoin || byLand;
+      else if (col === 'muenze') r = byCoin || byYear || byLand;
+      else r = byLand;
+      return r * dir;
+    });
+    return idx;
+  }
+  function sortHead(col, label) {
+    var arrow = syncSort.col === col ? (syncSort.dir > 0 ? ' \u25b2' : ' \u25bc') : '';
+    return '<th class="sync-sort' + (arrow ? ' on' : '') + '" data-sort="' + col + '">' + label + arrow + '</th>';
+  }
+  function tabOf(c) {
+    return {cc: 'name', ct: 'farbe', note: 'notiz', row: 'neu'}[c.kind] || 'auflage';
+  }
+  // Zeile weggelassen? Dann auch alles, was in dieser neuen Zeile stehen würde
+  function rowSkipped(c) {
+    if (!c.new_row) return false;
+    return syncChanges.some(function(r) { return r.kind === 'row' && r.key === c.new_row && r.skip; });
+  }
+
+  function renderSyncList() {
+    var changes = syncChanges;
+    var count = {neu: 0, auflage: 0, farbe: 0, name: 0, notiz: 0}, on = {neu: 0, auflage: 0, farbe: 0, name: 0, notiz: 0};
+    changes.forEach(function(c) { var t = tabOf(c); count[t]++; if (!c.skip && !rowSkipped(c)) on[t]++; });
+    var total = changes.filter(function(c) { return !c.skip && !rowSkipped(c); }).length;
+    var miss = syncMissing.length
+      ? '<div class="sync-miss">⚠️ Im Google Sheet gibt es Extra-Zeilen, die in der App fehlen – diese werden <b>nicht</b> übernommen: ' +
+        syncMissing.map(function(m) { return htmlEsc(m.country) + ' (unter ' + htmlEsc(m.after) + (m.n > 1 ? ', Nr. ' + m.n : '') + ')'; }).join(', ') + '</div>'
+      : '';
+    document.getElementById('syncSummary').innerHTML = (changes.length
+      ? '<b>' + total + '</b> von ' + changes.length + ' Änderungen werden übernommen. Noch ist nichts gespeichert.'
+      : 'Keine Änderungen – alles ist schon aktuell.') + miss;
+    document.getElementById('syncTabs').innerHTML = changes.length ? SYNC_TABS.filter(function(t) { return count[t[0]] > 0; }).map(function(t) {
+      return '<button class="info-tab' + (t[0] === syncTab ? ' active' : '') + '" data-stab="' + t[0] + '">' + t[1] + ' (' + on[t[0]] + (on[t[0]] !== count[t[0]] ? '/' + count[t[0]] : '') + ')</button>';
+    }).join('') : '';
+    var rows = [];
+    syncOrder().forEach(function(i) {
+      var c = changes[i];
+      if (tabOf(c) !== syncTab) return;
+      var coin = c.denom.indexOf('CC') === 0 ? '2€ Gedenk ' + c.denom.slice(2) : c.denom;
+      var oldTxt, newTxt;
+      if (c.kind === 'row') {
+        coin = (c.n ? 'Extra-Zeile unter ' + c.base : 'neues Jahr') + (c.mint ? ' (nur ' + c.mint + ')' : '');
+        oldTxt = '<i>fehlt</i>';
+        newTxt = htmlEsc(c.label) + (c.note ? '<div class="sync-note">' + htmlEsc(c.note) + '</div>' : '');
+      } else if (c.kind === 'note') {
+        oldTxt = c.old ? '<span class="sync-note">' + htmlEsc(c.old) + '</span>' : '<i>keine</i>';
+        newTxt = '<span class="sync-note">' + htmlEsc(c.new) + '</span>';
+      } else if (c.kind === 'ct') {
+        oldTxt = colorDot(c.color_old) + ' ' + (c.old ? (COLOR_WORD[c.old] || htmlEsc(c.old)) + ' <i>(selbst gewählt)</i>' : (COLOR_WORD[c.old_type] || 'keine'));
+        newTxt = colorDot(c.color_new) + ' ' + COLOR_WORD[c.new];
+      } else {
+        oldTxt = c.old ? htmlEsc(c.old) : '<i>leer</i>';
+        newTxt = htmlEsc(c.new);
+      }
+      var off = c.skip || rowSkipped(c);
+      rows.push('<tr class="' + (off ? 'sync-skip' : '') + '"><td>' + htmlEsc(c.country) + '</td><td>' + htmlEsc(c.year_label || c.year) + '</td><td>' + htmlEsc(coin) +
+        (c.mint ? ' (' + htmlEsc(c.mint) + ')' : '') + '</td><td class="sync-old">' + oldTxt + '</td><td class="sync-new">' + newTxt +
+        '</td><td><button class="sync-x" data-i="' + i + '" title="' + (c.skip ? 'Doch übernehmen' : 'Nicht übernehmen') + '">' + (c.skip ? '↺' : '✕') + '</button></td></tr>');
+    });
+    document.getElementById('syncList').innerHTML = changes.length
+      ? (rows.length ? '<table><thead><tr>' + sortHead('land', 'Land') + sortHead('jahr', 'Jahr') + sortHead('muenze', 'M\u00fcnze') + '<th>Alt</th><th>Neu</th><th></th></tr></thead><tbody>' + rows.join('') + '</tbody></table>'
+                     : '<p class="modal-sub" style="padding:12px">Hier ändert sich nichts.</p>')
+      : '';
+    var btn = document.getElementById('syncConfirm');
+    btn.style.display = total ? '' : 'none';
+    btn.textContent = total ? total + ' Änderungen übernehmen' : 'Übernehmen';
+  }
+  document.getElementById('syncTabs').addEventListener('click', function(e) {
+    var t = e.target.closest('.info-tab');
+    if (!t) return;
+    syncTab = t.getAttribute('data-stab');
+    renderSyncList();
   });
-  document.getElementById('syncOverlay').addEventListener('click', function() {
-    document.getElementById('syncOverlay').style.display = 'none';
-    document.getElementById('syncModal').style.display = 'none';
+  document.getElementById('syncList').addEventListener('click', function(e) {
+    var h = e.target.closest('.sync-sort');
+    if (h) {
+      var col = h.getAttribute('data-sort');
+      syncSort = syncSort.col === col ? {col: col, dir: -syncSort.dir} : {col: col, dir: 1};
+      renderSyncList();
+      return;
+    }
+    var x = e.target.closest('.sync-x');
+    if (!x) return;
+    var c = syncChanges[+x.getAttribute('data-i')];
+    c.skip = !c.skip;
+    renderSyncList();
   });
-  document.getElementById('syncCancel').addEventListener('click', function() {
-    document.getElementById('syncOverlay').style.display = 'none';
-    document.getElementById('syncModal').style.display = 'none';
-  });
-  document.getElementById('syncConfirm').addEventListener('click', function() {
-    document.getElementById('syncOverlay').style.display = 'none';
-    document.getElementById('syncModal').style.display = 'none';
-    var btn = document.getElementById('moreSync');
-    btn.style.opacity = '0.6';
-    btn.style.pointerEvents = 'none';
-    btn.textContent = '\U0001f504 Synchronisiere...';
-    showMsg('Auflagezahlen werden aus Google Sheet geladen...');
-    fetch('/api/sync', {method: 'POST'})
-      .then(function(r){ return r.json(); })
-      .then(function(j){
-        if (j.ok) {
-          showMsg('Sync fertig: ' + j.count + ' Auflagezahlen importiert. Seite wird neu geladen...');
-          setTimeout(function(){ location.reload(); }, 900);
-        } else {
-          showMsg('Sync-Fehler: ' + (j.error || 'unbekannt'), true);
-          btn.style.opacity = '';
-          btn.style.pointerEvents = '';
-          btn.textContent = '\U0001f504 Auflagezahlen syncen';
+
+  document.getElementById('syncPreview').addEventListener('click', function() {
+    var btn = this;
+    var country = document.getElementById('syncCountry').value;
+    btn.disabled = true;
+    btn.textContent = 'Lädt Google Sheet…';
+    fetch('/api/sync/preview', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({country: country})})
+      .then(function(r) { return r.json(); })
+      .then(function(j) {
+        if (!j.ok) throw new Error(j.error || 'unbekannt');
+        syncChanges = j.changes;
+        syncMissing = j.missing_rows || [];
+        syncChecks = j.checks || [];
+        renderSyncChecks();
+        syncTab = 'auflage';
+        for (var k = 0; k < SYNC_TABS.length; k++) {
+          if (syncChanges.some(function(c) { return tabOf(c) === SYNC_TABS[k][0]; })) { syncTab = SYNC_TABS[k][0]; break; }
         }
+        renderSyncList();
+        syncStep(2);
       })
-      .catch(function(e){
-        showMsg('Sync-Fehler: ' + e, true);
-        btn.style.opacity = '';
-        btn.style.pointerEvents = '';
-        btn.textContent = '\U0001f504 Auflagezahlen syncen';
-      });
+      .catch(function(e) { showMsg('Fehler beim Laden: ' + e.message, true); })
+      .then(function() { btn.disabled = false; btn.textContent = 'Änderungen ansehen'; });
+  });
+
+  function syncPayload() {
+    var out = [];
+    var mintageOn = {};
+    syncChanges.forEach(function(c) { if (c.kind !== 'ct' && !c.skip && !rowSkipped(c)) mintageOn[c.key] = true; });
+    syncChanges.forEach(function(c) {
+      if (rowSkipped(c)) return;
+      if (c.kind === 'row') { if (!c.skip) out.push({kind: 'row', country: c.country, row: c.row, label: c.label, note: c.note, mint: c.mint, coins: c.coins}); return; }
+      if (!c.skip) { out.push({kind: c.kind, key: c.key, store: c.store, new: c.new}); return; }
+      // Farbe weggelassen, Auflage aber übernommen: alte Farbe festhalten, damit sie sich nicht trotzdem ändert
+      if (c.kind === 'ct' && !c.old && c.old_type && mintageOn[c.for_key]) {
+        out.push({kind: 'ct', key: c.key, store: c.store, new: c.old_type});
+      }
+    });
+    return out;
+  }
+  document.getElementById('syncConfirm').addEventListener('click', function() {
+    var btn = this;
+    if (syncChecks.length && !confirm('Die Pr\u00fcfung hat ' + syncChecks.length + ' Hinweis' + (syncChecks.length > 1 ? 'e' : '') +
+        ' gefunden (oben in der Liste).\n\nTrotzdem \u00fcbernehmen?')) return;
+    var sel = document.getElementById('syncCountry');
+    var label = sel.value || 'alle Länder';
+    btn.disabled = true;
+    btn.textContent = 'Speichert…';
+    fetch('/api/sync/apply', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({label: label, changes: syncPayload()})})
+      .then(function(r) { return r.json(); })
+      .then(function(j) {
+        if (!j.ok) throw new Error(j.error || 'unbekannt');
+        showSync(false);
+        showMsg(j.count + ' Änderungen gespeichert. Rückgängig mit ↶. Seite wird neu geladen...');
+        setTimeout(function() { location.reload(); }, 1200);
+      })
+      .catch(function(e) { showMsg('Fehler beim Speichern: ' + e.message, true); })
+      .then(function() { btn.disabled = false; btn.textContent = 'Übernehmen'; });
   });
 
   // Undo / Redo
   let undoDesc = '';
   let redoDesc = '';
 
+  function setTbLabel(id, icon, text, title) {
+    var b = document.getElementById(id);
+    b.innerHTML = '';
+    b.appendChild(document.createTextNode(icon));
+    if (text) {
+      var l = document.createElement('span');
+      l.className = 'tb-label';
+      l.textContent = ' ' + text;
+      b.appendChild(l);
+    }
+    b.title = title;
+    b.classList.toggle('tb-off', !text);
+  }
+
   function refreshUndoPreview() {
     fetch('/api/undo-preview').then(function(r){ return r.json(); }).then(function(j){
       undoDesc = j.desc || '';
-      document.getElementById('undoBtn').textContent = undoDesc ? '\u21b6 ' + undoDesc : '\u21b6 Letzte Aktion r\u00fcckg\u00e4ngig';
+      setTbLabel('undoBtn', '\u21b6', undoDesc, undoDesc ? 'R\u00fcckg\u00e4ngig: ' + undoDesc : 'Nichts zum R\u00fcckg\u00e4ngigmachen');
     });
     fetch('/api/redo-preview').then(function(r){ return r.json(); }).then(function(j){
       redoDesc = j.desc || '';
-      document.getElementById('redoBtn').textContent = redoDesc ? '\u21b7 ' + redoDesc : '\u21b7 Wiederholen';
+      setTbLabel('redoBtn', '\u21b7', redoDesc, redoDesc ? 'Wiederholen: ' + redoDesc : 'Nichts zum Wiederholen');
     });
   }
 
@@ -855,7 +1124,7 @@
   document.getElementById('undoBtn').addEventListener('click', function() {
     if (!undoDesc) return;
     if (!confirm(undoDesc + ' r\u00fcckg\u00e4ngig machen?')) return;
-    this.textContent = '\u21b6 wird r\u00fcckg\u00e4ngig gemacht...';
+    setTbLabel('undoBtn', '\u21b6', 'wird r\u00fcckg\u00e4ngig gemacht...', '');
     this.style.pointerEvents = 'none';
     fetch('/api/undo', {method: 'POST'})
       .then(function(r){ return r.json(); })
@@ -867,17 +1136,17 @@
           setTimeout(function(){ location.reload(); }, 800);
         } else {
           showMsg('Fehler: ' + (j.error || 'unbekannt'), true);
-          document.getElementById('undoBtn').textContent = '\u21b6 ' + undoDesc;
+          setTbLabel('undoBtn', '\u21b6', undoDesc, '');
           document.getElementById('undoBtn').style.pointerEvents = '';
         }
       })
-      .catch(function(e){ showMsg('Fehler: ' + e, true); document.getElementById('undoBtn').textContent = '\u21b6 ' + undoDesc; document.getElementById('undoBtn').style.pointerEvents = ''; });
+      .catch(function(e){ showMsg('Fehler: ' + e, true); setTbLabel('undoBtn', '\u21b6', undoDesc, ''); document.getElementById('undoBtn').style.pointerEvents = ''; });
   });
 
   document.getElementById('redoBtn').addEventListener('click', function() {
     if (!redoDesc) return;
     if (!confirm(redoDesc + ' wiederholen?')) return;
-    this.textContent = '\u21b7 wird wiederholt...';
+    setTbLabel('redoBtn', '\u21b7', 'wird wiederholt...', '');
     this.style.pointerEvents = 'none';
     fetch('/api/redo', {method: 'POST'})
       .then(function(r){ return r.json(); })
@@ -888,11 +1157,11 @@
           setTimeout(function(){ location.reload(); }, 800);
         } else {
           showMsg('Fehler: ' + (j.error || 'unbekannt'), true);
-          document.getElementById('redoBtn').textContent = '\u21b7 ' + redoDesc;
+          setTbLabel('redoBtn', '\u21b7', redoDesc, '');
           document.getElementById('redoBtn').style.pointerEvents = '';
         }
       })
-      .catch(function(e){ showMsg('Fehler: ' + e, true); document.getElementById('redoBtn').textContent = '\u21b7 ' + redoDesc; document.getElementById('redoBtn').style.pointerEvents = ''; });
+      .catch(function(e){ showMsg('Fehler: ' + e, true); setTbLabel('redoBtn', '\u21b7', redoDesc, ''); document.getElementById('redoBtn').style.pointerEvents = ''; });
   });
 
   // Scroll to cell after undo/redo (stored ref from sessionStorage)
@@ -912,40 +1181,55 @@
   });
 
   // ───── Export buttons ─────
+  // PDF wie Excel: erst alle Länder (Münzstätten-Länder leer), dann je ein eigenes Blatt
   document.getElementById('exportPdfBtn').addEventListener('click', function() {
     showMsg('PDF wird erstellt...');
-    window.print();
+    var countries = [];
+    document.querySelectorAll('#grid .c-mint-all, #mobileList .c-mint-all').forEach(function(a) {
+      var c = a.getAttribute('data-country');
+      if (countries.indexOf(c) < 0) countries.push(c);
+    });
+    Promise.all(countries.map(function(c) {
+      return fetch('/api/mint-sheet?country=' + encodeURIComponent(c)).then(function(r) { return r.json(); });
+    })).then(function(results) {
+      var box = document.createElement('div');
+      box.id = 'printSheets';
+      results.forEach(function(j) { if (j.ok) box.insertAdjacentHTML('beforeend', '<div class="print-sheet">' + j.html + '</div>'); });
+      // Doppelte IDs vermeiden (das Blatt kann auch offen sein)
+      box.querySelectorAll('[id]').forEach(function(el) { el.removeAttribute('id'); });
+      document.body.appendChild(box);
+      countries.forEach(function(c) {
+        document.querySelectorAll('#grid td[data-ref][data-country="' + c + '"], #mobileList td[data-ref][data-country="' + c + '"]').forEach(function(td) {
+          td.classList.add('print-blank');
+        });
+      });
+      document.body.classList.add('print-all');
+      window.print();
+    }).catch(function() {
+      showMsg('PDF ohne Internet nur mit der Haupttabelle.', true);
+      window.print();
+    });
+  });
+  window.addEventListener('afterprint', function() {
+    var box = document.getElementById('printSheets');
+    if (box) box.remove();
+    document.querySelectorAll('.print-blank').forEach(function(td) { td.classList.remove('print-blank'); });
+    document.body.classList.remove('print-all');
   });
 
   document.getElementById('exportXlsxBtn').addEventListener('click', function() {
     showMsg('Excel wird erstellt...');
-    var isSplit = window.location.search.indexOf('layout=split') !== -1;
-    window.location.href = isSplit ? '/api/export/xlsx?layout=split' : '/api/export/xlsx';
+    window.location.href = '/api/export/xlsx';
   });
 
-  // Print Layout button
-  document.getElementById('morePrintLayout').addEventListener('click', function() {
-    window.open('/?layout=split', '_blank');
-  });
 
   // ───── Daten dropdown (Export / Import) ─────
   function closeDataDropdown() {
-    var dd = document.getElementById('dataDropdown');
-    if (dd) dd.style.display = 'none';
+    var md = document.getElementById('moreDropdown');
+    if (md) md.style.display = 'none';
   }
-  document.getElementById('dataBtn').addEventListener('click', function(e) {
-    e.stopPropagation();
-    var dd = document.getElementById('dataDropdown');
-    dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
-  });
   document.addEventListener('click', function(e) {
-    if (!e.target.closest('#dataBtn') && !e.target.closest('#dataDropdown')) {
-      closeDataDropdown();
-    }
-    if (!e.target.closest('#moreBtn') && !e.target.closest('#moreDropdown')) {
-      var md = document.getElementById('moreDropdown');
-      if (md) md.style.display = 'none';
-    }
+    if (!e.target.closest('#moreBtn')) closeDataDropdown();
   });
   document.getElementById('moreBtn').addEventListener('click', function(e) {
     e.stopPropagation();
@@ -954,12 +1238,7 @@
   });
   document.getElementById('dropdownExport').addEventListener('click', function() {
     closeDataDropdown();
-    showMsg('Daten-Export wird gestartet...');
-    window.location.href = '/api/export/data';
-  });
-  document.getElementById('dropdownDataJson').addEventListener('click', function() {
-    closeDataDropdown();
-    showMsg('data.json wird heruntergeladen...');
+    showMsg('Sicherung wird heruntergeladen...');
     window.location.href = '/api/export/data-json';
   });
   document.getElementById('dropdownImport').addEventListener('click', function() {
@@ -970,6 +1249,7 @@
     inp.addEventListener('change', function() {
       if (!inp.files || !inp.files[0]) return;
       var file = inp.files[0];
+      if (!confirm('Sicherung \u201e' + file.name + '\u201c laden?\n\nAlle Daten in der App werden durch diese Datei ersetzt. Das kann man nicht mit \u21b6 r\u00fcckg\u00e4ngig machen.\n\nTipp: Vorher \u201eSicherung herunterladen\u201c.')) return;
       var reader = new FileReader();
       reader.onload = function(e) {
         var content = e.target.result;
@@ -977,50 +1257,19 @@
           .then(function(r){ return r.json(); })
           .then(function(j){
             if (j.ok) {
-              showMsg('Import erfolgreich. Seite wird neu geladen...');
+              showMsg('Sicherung geladen. Seite wird neu geladen...');
               setTimeout(function(){ location.reload(); }, 800);
             } else {
-              showMsg('Import-Fehler: ' + (j.error || ''), true);
+              showMsg('Fehler beim Laden: ' + (j.error || ''), true);
             }
           })
-          .catch(function(err){ showMsg('Import-Fehler: ' + err, true); });
+          .catch(function(err){ showMsg('Fehler beim Laden: ' + err, true); });
       };
       reader.readAsText(file);
     });
     inp.click();
   });
 
-  // Add Year button logic
-  document.querySelectorAll('.add-year').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const block = this.getAttribute('data-block');
-      const country = this.getAttribute('data-country');
-      if (!block || !country) return;
-      fetch('/api/next-year?block=' + encodeURIComponent(block) + '&country=' + encodeURIComponent(country))
-        .then(r => r.json())
-        .then(j => {
-          const year = prompt('Jahr eingeben f\u00fcr ' + country + ':', j.nextYear || '2027');
-          if (!year) return;
-          return fetch('/api/add-year', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({block: block, country: country, year: year})
-          });
-        })
-        .then(r => r && r.json())
-        .then(j => {
-          if (j && j.ok) {
-            showMsg('Jahr ' + j.year + ' hinzugef\u00fcgt. Seite wird neu geladen...');
-            refreshBreakdown();
-            refreshUndoPreview();
-            setTimeout(function(){ location.reload(); }, 1000);
-          } else if (j && j.error) {
-            showMsg('Fehler: ' + j.error, true);
-          }
-        })
-        .catch(function(e){ showMsg('Fehler: ' + e, true); });
-    });
-  });
 
   // ───── Country info popup ─────
   function closeAllCountryPopups() {
@@ -1096,66 +1345,6 @@
       const totalStr = (stats.totalCents / 100).toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2});
       html += `<tr class="country-popup-total"><td>Gesamt</td><td></td><td style="text-align:center"><span style="color:#c00">${totalMissReg}</span></td><td style="text-align:center"><span style="color:#c00">${totalMissNifc}</span></td><td>\u20ac${totalStr}</td></tr></table>`;
       popup.innerHTML = html;
-      var blk = this.getAttribute('data-block');
-      var ctry = this.getAttribute('data-country');
-      var addBtn = document.createElement('span');
-      addBtn.className = 'add-year';
-      addBtn.textContent = '+ Jahr hinzuf\u00fcgen';
-      addBtn.setAttribute('data-block', blk);
-      addBtn.setAttribute('data-country', ctry);
-      addBtn.addEventListener('click', function() {
-        var b = this.getAttribute('data-block'), c = this.getAttribute('data-country');
-        if (!b || !c) return;
-        fetch('/api/next-year?block=' + encodeURIComponent(b) + '&country=' + encodeURIComponent(c))
-          .then(function(r){ return r.json(); })
-          .then(function(j){
-            var y = prompt('Jahr eingeben f\u00fcr ' + c + ':', j.nextYear || '2027');
-            if (!y) return;
-            return fetch('/api/add-year', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({block:b, country:c, year:y})});
-          })
-          .then(function(r){ return r && r.json(); })
-          .then(function(j){
-            if (j && j.ok) {
-              showMsg('Jahr ' + j.year + ' hinzugef\u00fcgt. Seite wird neu geladen...');
-              refreshBreakdown();
-              refreshUndoPreview();
-              setTimeout(function(){ location.reload(); }, 1000);
-            } else if (j && j.error) {
-              showMsg('Fehler: ' + j.error, true);
-            }
-          })
-          .catch(function(e){ showMsg('Fehler: ' + e, true); });
-      });
-      var rmBtn = document.createElement('span');
-      rmBtn.className = 'add-year';
-      rmBtn.textContent = '\u2013 Jahr entfernen';
-      rmBtn.style.marginLeft = '6px';
-      rmBtn.setAttribute('data-block', blk);
-      rmBtn.setAttribute('data-country', ctry);
-      rmBtn.addEventListener('click', function() {
-        var b = this.getAttribute('data-block'), c = this.getAttribute('data-country');
-        if (!b || !c) return;
-        var y = prompt('Jahr entfernen f\u00fcr ' + c + ':');
-        if (!y) return;
-        fetch('/api/remove-year', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({block:b, country:c, year:y})})
-          .then(function(r){ return r.json(); })
-          .then(function(j){
-            if (j && j.ok) {
-              showMsg('Jahr ' + j.year + ' entfernt. Seite wird neu geladen...');
-              refreshBreakdown();
-              refreshUndoPreview();
-              setTimeout(function(){ location.reload(); }, 1000);
-            } else if (j && j.error) {
-              showMsg('Fehler: ' + j.error, true);
-            }
-          })
-          .catch(function(e){ showMsg('Fehler: ' + e, true); });
-      });
-      var addWrap = document.createElement('div');
-      addWrap.style.cssText = 'text-align:center;margin-top:8px;padding-top:8px;border-top:1px solid #eee';
-      addWrap.appendChild(addBtn);
-      addWrap.appendChild(rmBtn);
-      popup.appendChild(addWrap);
       this.parentElement.appendChild(popup);
     });
   });
@@ -1229,11 +1418,428 @@
       });
   }
 
-  // ───── Sum breakdown toggle ─────
-  document.getElementById('sumBtn').addEventListener('click', function() {
-    var p = document.getElementById('sumBreakdown');
-    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  // ───── Jahr hinzufügen / entfernen (Länder-Kopf, beim Bearbeiten) ─────
+  function afterYearChange(j, word) {
+    if (j && j.ok) {
+      showMsg('Jahr ' + j.year + ' ' + word + '. Seite wird neu geladen...');
+      setTimeout(function(){ location.reload(); }, 800);
+    } else if (j && j.error) {
+      showMsg('Fehler: ' + j.error, true);
+    }
+  }
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.yr-btn');
+    if (!btn) return;
+    e.stopPropagation();
+    var b = btn.getAttribute('data-block'), c = btn.getAttribute('data-country');
+    if (btn.classList.contains('yr-add')) {
+      fetch('/api/next-year?block=' + encodeURIComponent(b) + '&country=' + encodeURIComponent(c))
+        .then(function(r){ return r.json(); })
+        .then(function(j){
+          var y = prompt('Welches Jahr hinzuf\u00fcgen? (' + c + ')', j.nextYear || '');
+          if (!y) return;
+          return fetch('/api/add-year', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({block:b, country:c, year:y})})
+            .then(function(r){ return r.json(); });
+        })
+        .then(function(j){ afterYearChange(j, 'hinzugef\u00fcgt'); })
+        .catch(function(err){ showMsg('Fehler: ' + err, true); });
+    } else {
+      var y = prompt('Welches Jahr entfernen? (' + c + ')\nAlle M\u00fcnzen in diesem Jahr werden gel\u00f6scht. R\u00fcckg\u00e4ngig geht mit \u21b6.', btn.getAttribute('data-last') || '');
+      if (!y) return;
+      fetch('/api/remove-year', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({block:b, country:c, year:y})})
+        .then(function(r){ return r.json(); })
+        .then(function(j){ afterYearChange(j, 'entfernt'); })
+        .catch(function(err){ showMsg('Fehler: ' + err, true); });
+    }
   });
+
+  // ───── Münzstätte wechseln ohne Neuladen ─────
+  function switchMint(link) {
+    var mint = link.getAttribute('data-mint');
+    var mintsBox = link.closest('.c-mints');
+    var allBtn = mintsBox.querySelector('.c-mint-all');
+    var country = allBtn ? allBtn.getAttribute('data-country') : '';
+    if (!country) { location.href = link.href; return; }
+    // Hat die alte oder neue Münzstätte eigene Extra-Zeilen? Dann ändern sich die Zeilen -> neu laden
+    var rowMints = mintsBox.getAttribute('data-row-mints') || '';
+    var oldMint = getActiveMint();
+    if (rowMints && (rowMints.indexOf(mint) >= 0 || rowMints.indexOf(oldMint) >= 0)) { location.href = link.href; return; }
+    loadMintCells(country, mint, function() {
+      mintsBox.querySelectorAll('.c-mint').forEach(function(a) { a.classList.toggle('active', a === link); });
+      try { history.replaceState(null, '', '?mint=' + encodeURIComponent(mint)); } catch (e) {}
+    }, function() { location.href = link.href; });
+  }
+
+  function loadMintCells(country, mint, done, fail) {
+    fetch('/api/mint-cells?country=' + encodeURIComponent(country) + '&mint=' + encodeURIComponent(mint))
+      .then(function(r) { return r.json(); })
+      .then(function(j) {
+        if (!j.ok) throw new Error(j.error || '');
+        var tables = new Set();
+        Object.keys(j.cells).forEach(function(ref) {
+          var td = document.querySelector('td[data-ref="' + ref.replace(/"/g, '\\"') + '"]:not([data-mint])');
+          if (!td) return;
+          var c = j.cells[ref];
+          td.textContent = c.v || '';
+          // Stil genau wie beim Neuladen setzen
+          td.setAttribute('style', (c.sty || '') + 'font-size:8pt;text-align:center;border:1px solid #000');
+          tables.add(td.closest('table'));
+          if (c.ct) td.setAttribute('data-ct', c.ct); else td.removeAttribute('data-ct');
+          if (c.ct === 'x') td.setAttribute('data-xlocked', '1'); else td.removeAttribute('data-xlocked');
+          if (c.img) td.setAttribute('data-link', c.img); else td.removeAttribute('data-link');
+          if (c.note) td.setAttribute('data-note', c.note); else td.removeAttribute('data-note');
+          td.removeAttribute('data-vp-val');
+        });
+        // Tabelle neu zeichnen lassen (sonst bleiben in Safari dicke Linien stehen)
+        tables.forEach(function(t) {
+          if (!t) return;
+          t.style.display = 'none';
+          void t.offsetHeight;
+          t.style.display = '';
+        });
+        document.getElementById('activeMint').textContent = mint;
+        refreshUndoPreview();
+        if (done) done();
+      })
+      .catch(function() { if (fail) fail(); });
+  }
+
+  // ───── Münzstätten-Blatt öffnen / schließen ohne Neuladen ─────
+  var sheetScrollY = 0;
+  function mainParts() {
+    return [document.getElementById('grid'), document.getElementById('mobileList'), document.querySelector('.flag-bar')];
+  }
+  function openSheet(country, push) {
+    fetch('/api/mint-sheet?country=' + encodeURIComponent(country))
+      .then(function(r) { return r.json(); })
+      .then(function(j) {
+        if (!j.ok) throw new Error(j.error || '');
+        sheetScrollY = window.scrollY;
+        var old = document.getElementById('sheetView');
+        if (old) old.remove();
+        var wrap = document.createElement('div');
+        wrap.innerHTML = j.html;
+        var view = wrap.firstElementChild;
+        view.setAttribute('data-country', country);
+        var grid = document.getElementById('grid');
+        grid.parentNode.insertBefore(view, grid.nextSibling);
+        view.querySelectorAll('[data-ref]').forEach(bindCell);
+        mainParts().forEach(function(el) { if (el) el.style.display = 'none'; });
+        document.body.classList.add('on-sheet');
+        if (push) { try { history.pushState({sheet: country}, '', '?layout=mints&country=' + encodeURIComponent(country)); } catch (e) {} }
+        window.scrollTo(0, 0);
+      })
+      .catch(function() { location.href = '/?layout=mints&country=' + encodeURIComponent(country); });
+  }
+  function closeSheet(push) {
+    var view = document.getElementById('sheetView');
+    var grid = document.getElementById('grid');
+    // Direkt als Blatt geöffnet: es gibt keine Haupttabelle zum Zurückholen
+    if (!grid || !grid.querySelector('td[data-ref]')) { location.href = '/'; return; }
+    var country = view ? view.getAttribute('data-country') : '';
+    if (view) view.remove();
+    document.body.classList.remove('on-sheet');
+    var ml = document.getElementById('mobileList');
+    if (ml) { ml.style.display = ''; } else { grid.style.display = ''; }
+    var fb = document.querySelector('.flag-bar');
+    if (fb) fb.style.display = '';
+    var mint = getActiveMint();
+    if (push) { try { history.pushState(null, '', mint ? '?mint=' + encodeURIComponent(mint) : '/'); } catch (e) {} }
+    window.scrollTo(0, sheetScrollY);
+    // Änderungen aus dem Blatt in die Haupttabelle holen
+    if (country && mint) loadMintCells(country, mint);
+  }
+  document.addEventListener('click', function(e) {
+    var back = e.target.closest('.sheet-back-btn');
+    if (!back) return;
+    e.preventDefault();
+    closeSheet(true);
+  });
+  window.addEventListener('popstate', function() {
+    var m = /[?&]layout=mints&country=([^&]*)/.exec(location.search);
+    if (m) openSheet(decodeURIComponent(m[1]), false);
+    else if (document.getElementById('sheetView')) closeSheet(false);
+  });
+
+  document.addEventListener('click', function(e) {
+    var a = e.target.closest('.c-mint');
+    if (!a) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (a.classList.contains('c-mint-all')) { openSheet(a.getAttribute('data-country'), true); return; }
+    if (a.classList.contains('active')) return;
+    switchMint(a);
+  });
+
+  // ───── Extra-Zeilen: ⓘ zeigt, was die Zeile ist; beim Bearbeiten Name + Beschreibung ändern ─────
+  function yearCellHtml(country, row, label, note) {
+    if (!note) return htmlEsc(label);
+    return '<span class="yr-name" data-country="' + htmlEsc(country) + '" data-row="' + htmlEsc(row) +
+      '" data-note="' + htmlEsc(note) + '" title="' + htmlEsc(note) + '">' + htmlEsc(label) + '</span>';
+  }
+  var rowEdit = null;
+  function showRowModal(on) {
+    document.getElementById('rowModal').style.display = on ? 'block' : 'none';
+    document.getElementById('rowOverlay').style.display = on ? 'block' : 'none';
+  }
+  function hideNotePop() { document.getElementById('rowNotePop').style.display = 'none'; }
+  document.addEventListener('click', function(e) {
+    var info = e.target.closest('.yr-name');
+    var cell = e.target.closest('.c-year-extra');
+    if (document.body.classList.contains('edit-mode') && cell) {
+      // Bearbeiten: Fenster für Name + Beschreibung
+      e.stopPropagation();
+      var sp = cell.querySelector('.yr-name');
+      rowEdit = {country: cell.getAttribute('data-country'), row: cell.getAttribute('data-row'),
+                 block: (cell.getAttribute('data-cid') || '').split('|')[0]};
+      document.getElementById('rowWhere').textContent = rowEdit.country;
+      document.getElementById('rowLabel').value = cell.textContent.trim();
+      document.getElementById('rowNote').value = sp ? sp.getAttribute('data-note') : '';
+      showRowModal(true);
+      document.getElementById('rowLabel').focus();
+      return;
+    }
+    if (info) {
+      // ⓘ: Beschreibung anzeigen
+      e.stopPropagation();
+      var pop = document.getElementById('rowNotePop');
+      var label = info.textContent.trim();
+      pop.innerHTML = '<b>' + htmlEsc(info.getAttribute('data-country')) + ' \u00b7 ' + htmlEsc(label) + '</b><br>' + htmlEsc(info.getAttribute('data-note'));
+      var r = info.getBoundingClientRect();
+      pop.style.display = 'block';
+      pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pop.offsetWidth - 8)) + 'px';
+      pop.style.top = (r.bottom + 6) + 'px';
+      return;
+    }
+    hideNotePop();
+  });
+  window.addEventListener('scroll', hideNotePop, {passive: true});
+  document.getElementById('rowClose').addEventListener('click', function() { showRowModal(false); });
+  document.getElementById('rowCancel').addEventListener('click', function() { showRowModal(false); });
+  document.getElementById('rowOverlay').addEventListener('click', function() { showRowModal(false); });
+  document.getElementById('rowDelete').addEventListener('click', function() {
+    if (!rowEdit) return;
+    var target = rowEdit;
+    var name = document.getElementById('rowLabel').value.trim() || target.row;
+    if (!confirm('Zeile \u201e' + name + '\u201c bei ' + target.country + ' l\u00f6schen?\n\nAlle M\u00fcnzen in dieser Zeile werden mit gel\u00f6scht. R\u00fcckg\u00e4ngig geht mit \u21b6.')) return;
+    fetch('/api/remove-year', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({block: target.block || 'A', country: target.country, year: target.row})})
+      .then(function(r) { return r.json(); })
+      .then(function(j) {
+        if (!j.ok) { showMsg('Fehler: ' + (j.error || ''), true); return; }
+        showRowModal(false);
+        showMsg('Zeile gel\u00f6scht. R\u00fcckg\u00e4ngig mit \u21b6. Seite wird neu geladen...');
+        setTimeout(function() { location.reload(); }, 800);
+      })
+      .catch(function(err) { showMsg('Fehler: ' + err, true); });
+  });
+  document.getElementById('rowSave').addEventListener('click', function() {
+    if (!rowEdit) return;
+    var label = document.getElementById('rowLabel').value.trim();
+    var note = document.getElementById('rowNote').value.trim();
+    if (!label) { showMsg('Der Name darf nicht leer sein.', true); return; }
+    var target = rowEdit;
+    fetch('/api/extra-row/rename', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({country: target.country, row: target.row, label: label, note: note})})
+      .then(function(r) { return r.json(); })
+      .then(function(j) {
+        if (!j.ok) { showMsg('Fehler: ' + (j.error || ''), true); return; }
+        showRowModal(false);
+        var html = yearCellHtml(target.country, target.row, j.label, j.note);
+        document.querySelectorAll('.c-year-extra').forEach(function(c) {
+          if (c.getAttribute('data-country') === target.country && c.getAttribute('data-row') === target.row) c.innerHTML = html;
+        });
+        document.querySelectorAll('td[data-year-label]').forEach(function(td) {
+          if (td.getAttribute('data-country') === target.country && td.getAttribute('data-year') === target.row) td.setAttribute('data-year-label', j.label);
+        });
+        showMsg('Gespeichert: \u201e' + j.label + '\u201c. R\u00fcckg\u00e4ngig mit \u21b6.');
+        refreshUndoPreview();
+      })
+      .catch(function(err) { showMsg('Fehler: ' + err, true); });
+  });
+
+  // ───── Münze hinzufügen (ohne die Zelle zu suchen) ─────
+  var QA = [];
+  try { QA = JSON.parse(document.getElementById('quickData').textContent); } catch (e) {}
+  var QA_DENOMS = [['1c', '1 Cent'], ['2c', '2 Cent'], ['5c', '5 Cent'], ['10c', '10 Cent'], ['20c', '20 Cent'], ['50c', '50 Cent'],
+                   ['1€', '1 Euro'], ['2€', '2 Euro'], ['CC1', '2€ Gedenk 1'], ['CC2', '2€ Gedenk 2'], ['CC3', '2€ Gedenk 3']];
+  var qa = {q: '', s: '', mint: '', cur: null};
+  function qaStore(k, v) { try { if (v === undefined) return localStorage.getItem('muenzapp:qa:' + k); localStorage.setItem('muenzapp:qa:' + k, v); } catch (e) {} }
+  function qaCountry() { return QA.filter(function(c) { return c.name === document.getElementById('qaCountry').value; })[0]; }
+  function qaRef() {
+    var c = qaCountry(), y = document.getElementById('qaYear').value, d = document.getElementById('qaDenom').value;
+    if (!c || !y || !d) return '';
+    return c.name + ':' + y + ':' + d + (c.mints.length ? ':' + qa.mint : '');
+  }
+  function qaFillYears() {
+    var c = qaCountry(), sel = document.getElementById('qaYear'), keep = sel.value || qaStore('year');
+    sel.innerHTML = c.years.filter(function(y) { return !y[2] || !c.mints.length || y[2] === qa.mint; }).map(function(y) {
+      return '<option value="' + htmlEsc(y[0]) + '">' + htmlEsc(y[1]) + '</option>';
+    }).join('');
+    if (keep && [].some.call(sel.options, function(o) { return o.value === keep; })) sel.value = keep;
+    else sel.value = sel.options.length ? sel.options[sel.options.length - 1].value : '';
+    qaFillDenoms();
+  }
+  function qaFillDenoms() {
+    var c = qaCountry(), y = document.getElementById('qaYear').value, sel = document.getElementById('qaDenom'), keep = sel.value;
+    var cc = (c && c.cc[y]) || {};
+    sel.innerHTML = QA_DENOMS.map(function(d) {
+      return '<option value="' + d[0] + '">' + d[1] + (cc[d[0]] ? ' – ' + htmlEsc(cc[d[0]]) : '') + '</option>';
+    }).join('');
+    if (keep) sel.value = keep;
+    qaRenderChips();
+    qaLoad();
+  }
+  function qaMints() {
+    var c = qaCountry(), row = document.getElementById('qaMintRow');
+    if (!c || !c.mints.length) { row.style.display = 'none'; qa.mint = ''; return; }
+    if (c.mints.indexOf(qa.mint) < 0) qa.mint = c.mints.indexOf(getActiveMint()) >= 0 ? getActiveMint() : c.mints[0];
+    row.style.display = '';
+    document.getElementById('qaMints').innerHTML = c.mints.map(function(m) {
+      return '<span class="qa-src' + (m === qa.mint ? ' on' : '') + '" data-m="' + m + '">' + m + '</span>';
+    }).join('');
+  }
+  // Was ist schon in der Sammlung?
+  function qaLoad() {
+    var ref = qaRef(), box = document.getElementById('qaHave');
+    qa.cur = null;
+    if (!ref) { box.textContent = ''; return; }
+    box.textContent = 'Lädt…';
+    fetch('/api/coin-value?ref=' + encodeURIComponent(ref)).then(function(r) { return r.json(); }).then(function(j) {
+      if (ref !== qaRef()) return;
+      qa.cur = j;
+      var list = vpParseRaw(j.v || '');
+      var html = list.length
+        ? '🪙 Schon in der Sammlung: <b>' + list.length + '</b> – ' + list.map(function(e) {
+            return e.text ? htmlEsc(e.text) : htmlEsc(e.q + (e.s || '')) + ' (' + (QUALITY_LABELS[e.q] || e.q) + ', ' + (SOURCE_LABELS[e.s || ''] || '') + ')';
+          }).join(', ')
+        : 'Noch nicht in der Sammlung.';
+      if (j.ct === 'x') html += '<br><span class="qa-warn">⚠️ Als ✕ nie geprägt markiert – beim Hinzufügen wird das ✕ entfernt.</span>';
+      box.innerHTML = html;
+      box.classList.toggle('has', list.length > 0);
+    }).catch(function() { box.textContent = ''; });
+  }
+  // Auswahl als Knöpfe statt Listen
+  function qaRenderChips() {
+    var cSel = document.getElementById('qaCountry'), ySel = document.getElementById('qaYear'), dSel = document.getElementById('qaDenom');
+    var c = qaCountry();
+    document.getElementById('qaCountryName').textContent = c ? c.name : '';
+    document.getElementById('qaCountryChips').innerHTML = QA.map(function(x) {
+      return '<button type="button" class="qa-flag' + (x.name === cSel.value ? ' on' : '') + '" data-c="' + htmlEsc(x.name) + '" title="' + htmlEsc(x.name) + '">' + (x.flag || htmlEsc(x.name.slice(0, 2))) + '</button>';
+    }).join('');
+    var extra = {};
+    if (c) c.years.forEach(function(y) { if (!/^\d+$/.test(y[0])) extra[y[0]] = true; });
+    document.getElementById('qaYearChips').innerHTML = [].map.call(ySel.options, function(o) {
+      return '<button type="button" class="qa-chip' + (o.value === ySel.value ? ' on' : '') + (extra[o.value] ? ' extra' : '') + '" data-y="' + htmlEsc(o.value) + '">' + htmlEsc(o.text) + '</button>';
+    }).join('');
+    document.getElementById('qaDenomChips').innerHTML = [].map.call(dSel.options, function(o) {
+      var parts = o.text.split(' \u2013 ');
+      var short = parts[0].replace('2\u20ac Gedenk ', 'Gedenk ').replace(' Cent', 'c').replace(' Euro', '\u20ac');
+      return '<button type="button" class="qa-chip' + (o.value === dSel.value ? ' on' : '') + (o.value.indexOf('CC') === 0 ? ' cc' : '') + '" data-d="' + o.value + '" title="' + htmlEsc(o.text) + '">' +
+        htmlEsc(short) + (parts[1] ? '<small>' + htmlEsc(parts[1]) + '</small>' : '') + '</button>';
+    }).join('');
+  }
+
+  function qaPick(groupId, attr, val) {
+    document.querySelectorAll('#' + groupId + ' [' + attr + ']').forEach(function(el) { el.classList.toggle('on', el.getAttribute(attr) === val); });
+  }
+  function showQa(on) {
+    document.getElementById('qaModal').style.display = on ? 'block' : 'none';
+    document.getElementById('qaOverlay').style.display = on ? 'block' : 'none';
+  }
+  (function initQa() {
+    var sel = document.getElementById('qaCountry');
+    if (!sel) return;
+    sel.innerHTML = QA.map(function(c) { return '<option value="' + htmlEsc(c.name) + '">' + c.flag + ' ' + htmlEsc(c.name) + '</option>'; }).join('');
+    document.getElementById('qaBtn').addEventListener('click', function() {
+      var last = qaStore('country');
+      if (last && QA.some(function(c) { return c.name === last; })) sel.value = last;
+      qa.q = qa.q || '✔'; qa.s = qa.s === undefined ? '' : qa.s;
+      qaPick('qaQ', 'data-q', qa.q); qaPick('qaS', 'data-s', qa.s);
+      document.getElementById('qaDone').textContent = '';
+      qaMints(); qaFillYears();
+      showQa(true);
+    });
+    sel.addEventListener('change', function() { qaStore('country', sel.value); document.getElementById('qaYear').value = ''; qaMints(); qaFillYears(); });
+    document.getElementById('qaYear').addEventListener('change', function() { qaStore('year', this.value); qaFillDenoms(); });
+    document.getElementById('qaDenom').addEventListener('change', function() { qaRenderChips(); qaLoad(); });
+    // Knöpfe setzen die (unsichtbaren) Listen
+    document.getElementById('qaCountryChips').addEventListener('click', function(e) {
+      var b = e.target.closest('[data-c]'); if (!b) return;
+      sel.value = b.getAttribute('data-c'); sel.dispatchEvent(new Event('change'));
+    });
+    document.getElementById('qaYearChips').addEventListener('click', function(e) {
+      var b = e.target.closest('[data-y]'); if (!b) return;
+      var y = document.getElementById('qaYear'); y.value = b.getAttribute('data-y'); y.dispatchEvent(new Event('change'));
+    });
+    document.getElementById('qaDenomChips').addEventListener('click', function(e) {
+      var b = e.target.closest('[data-d]'); if (!b) return;
+      var d = document.getElementById('qaDenom'); d.value = b.getAttribute('data-d'); d.dispatchEvent(new Event('change'));
+    });
+    document.getElementById('qaMints').addEventListener('click', function(e) {
+      var m = e.target.closest('[data-m]'); if (!m) return;
+      qa.mint = m.getAttribute('data-m'); qaMints(); qaFillYears();
+    });
+    document.getElementById('qaQ').addEventListener('click', function(e) {
+      var b = e.target.closest('[data-q]'); if (!b) return; qa.q = b.getAttribute('data-q'); qaPick('qaQ', 'data-q', qa.q);
+    });
+    document.getElementById('qaS').addEventListener('click', function(e) {
+      var b = e.target.closest('[data-s]'); if (!b) return; qa.s = b.getAttribute('data-s'); qaPick('qaS', 'data-s', qa.s);
+    });
+    document.getElementById('qaClose').addEventListener('click', function() { showQa(false); });
+    document.getElementById('qaOverlay').addEventListener('click', function() { showQa(false); });
+    document.getElementById('qaSave').addEventListener('click', function() {
+      var ref = qaRef();
+      if (!ref || !qa.cur) return;
+      var btn = this, wasX = qa.cur.ct === 'x';
+      // Neue Münze einfach anhängen – was schon in der Zelle steht, bleibt genau so
+      var newVal = (wasX ? '' : (qa.cur.v || '')) + qa.q + qa.s;
+      var body = {}; body[ref] = newVal;
+      btn.disabled = true;
+      var first = wasX ? fetch('/api/cell-types', {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify((function() { var b = {}; b[ref] = 'nodata'; return b; })())}) : Promise.resolve();
+      first.then(function() {
+        return fetch('/api/cells', {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+      }).then(function(r) { return r.json(); }).then(function(j) {
+        if (!j.ok) throw new Error(j.error || '');
+        // Zelle auf der Seite gleich mitändern, falls sie sichtbar ist
+        var parts = ref.split(':'), base = parts.slice(0, 3).join(':');
+        var targets = [];
+        if (parts.length === 4) {
+          targets = [].slice.call(document.querySelectorAll('td[data-ref="' + ref + '"]'));
+          if (getActiveMint() === parts[3]) targets = targets.concat([].slice.call(document.querySelectorAll('td[data-ref="' + base + '"]:not([data-mint])')));
+        } else {
+          targets = [].slice.call(document.querySelectorAll('td[data-ref="' + ref + '"]'));
+        }
+        targets.forEach(function(td) {
+          td.textContent = newVal; td.setAttribute('data-vp-val', newVal);
+          if (wasX) { td.removeAttribute('data-xlocked'); td.removeAttribute('data-ct'); }
+        });
+        var c = qaCountry(), yo = document.getElementById('qaYear'), dd = document.getElementById('qaDenom');
+        document.getElementById('qaDone').innerHTML = '✅ Hinzugefügt: <b>' + htmlEsc(c.name + ' ' + yo.options[yo.selectedIndex].text + ' ' + dd.options[dd.selectedIndex].text.split(' – ')[0] + (parts.length === 4 ? ' (' + parts[3] + ')' : '')) +
+          ' · ' + htmlEsc(qa.q + qa.s) + '</b>. Rückgängig mit ↶.';
+        refreshBreakdown(); refreshUndoPreview(); qaLoad();
+      }).catch(function(e) { showMsg('Fehler: ' + e.message, true); })
+        .then(function() { btn.disabled = false; });
+    });
+  })();
+
+  // ───── Sum breakdown toggle ─────
+  function showSum(on) {
+    document.getElementById('sumBreakdown').style.display = on ? 'block' : 'none';
+    document.getElementById('sumOverlay').style.display = on ? 'block' : 'none';
+  }
+  document.getElementById('sumBtn').addEventListener('click', function() { showTab('tabZahlen'); showSum(true); });
+  // Reiter im Info-Popup: Zahlen / Legende
+  function showTab(id) {
+    document.querySelectorAll('#sumBreakdown .tab-pane').forEach(function(p) { p.style.display = p.id === id ? '' : 'none'; });
+    document.querySelectorAll('#sumBreakdown .info-tab').forEach(function(t) { t.classList.toggle('active', t.getAttribute('data-tab') === id); });
+  }
+  document.querySelectorAll('#sumBreakdown .info-tab').forEach(function(t) {
+    t.addEventListener('click', function() { showTab(this.getAttribute('data-tab')); });
+  });
+  document.getElementById('sumClose').addEventListener('click', function() { showSum(false); });
+  document.getElementById('sumOverlay').addEventListener('click', function() { showSum(false); });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') showSum(false); });
 
   // ───── Flag bar country jump ─────
   document.querySelectorAll('.flag-btn').forEach(function(btn) {
@@ -1251,26 +1857,6 @@
 
 
 
-  // ───── Delete country ─────
-  document.addEventListener('click', function(e) {
-    var del = e.target.closest('.c-del');
-    if (!del) return;
-    e.stopPropagation();
-    var cname = del.getAttribute('data-country');
-    if (!cname) return;
-    if (!confirm('Land "' + cname + '" wirklich l\u00f6schen? Alle zugeh\u00f6rigen M\u00fcnzdaten werden entfernt.')) return;
-    fetch('/api/countries/' + encodeURIComponent(cname), {
-      method: 'DELETE'
-    }).then(function(r) { return r.json(); }).then(function(j) {
-      if (j.ok) {
-        showMsg('Land "' + cname + '" gel\u00f6scht. Seite wird neu geladen...');
-        setTimeout(function() { location.reload(); }, 800);
-      } else {
-        showMsg('Fehler: ' + (j.error || ''), true);
-      }
-    }).catch(function(e) { showMsg('Fehler: ' + e, true); });
-  });
-
   // ───── Reorder Modal (✏️ Länder) ─────
   function openReorderModal() {
     fetch('/api/countries').then(function(r) { return r.json(); }).then(function(countries) {
@@ -1284,7 +1870,7 @@
         html += '<button class="rm-del">\u2715</button></div>';
       });
       document.getElementById('rmList').innerHTML = html;
-      document.getElementById('reorderModal').style.display = 'block';
+      showModal('reorderModal', 'rmOverlay', true);
       // ▲ handler — grid-based: A→AC prev, O→A same, AC→O same
       document.querySelectorAll('.rm-up').forEach(function(btn, i) {
         btn.addEventListener('click', function() {
@@ -1331,14 +1917,9 @@
     }).catch(function(e) { showMsg('Fehler: ' + e, true); });
   }
 
-  document.getElementById('moreCountries').addEventListener('click', openReorderModal);
-  document.getElementById('rmClose').addEventListener('click', function() {
-    document.getElementById('reorderModal').style.display = 'none';
-  });
-  // Close modal on overlay click
-  document.getElementById('reorderModal').addEventListener('click', function(e) {
-    if (e.target === this) this.style.display = 'none';
-  });
+  document.getElementById('editCountries').addEventListener('click', openReorderModal);
+  document.getElementById('rmClose').addEventListener('click', function() { showModal('reorderModal', 'rmOverlay', false); });
+  document.getElementById('rmOverlay').addEventListener('click', function() { showModal('reorderModal', 'rmOverlay', false); });
   // Add country
   document.getElementById('acSave').addEventListener('click', function() {
     var name = document.getElementById('acName').value.trim();
@@ -1358,10 +1939,33 @@
     }).catch(function(e) { showMsg('Fehler: ' + e, true); });
   });
 
-  // Hide more button when already in split mode
-  if (window.location.search.indexOf('layout=split') !== -1) {
-    var moreBtn = document.getElementById('moreBtn');
-    if (moreBtn) moreBtn.style.display = 'none';
+
+  // ───── Offline ansehen ─────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function(){});
+    // Beim ersten Besuch die Seite gleich merken (vorher läuft der Helfer noch nicht)
+    if (!navigator.serviceWorker.controller) {
+      navigator.serviceWorker.addEventListener('controllerchange', function() {
+        var urls = [location.href];
+        document.querySelectorAll('script[src], link[rel=stylesheet]').forEach(function(el) { urls.push(el.src || el.href); });
+        urls.forEach(function(u) { fetch(u, {credentials: 'same-origin'}).catch(function(){}); });
+      }, {once: true});
+    }
+    // Nach Änderungen die gemerkte Seite auffrischen, wenn man die App verlässt
+    var changed = false;
+    var origFetch = window.fetch;
+    window.fetch = function(input, init) {
+      var p = origFetch.apply(this, arguments);
+      var method = (init && init.method || 'GET').toUpperCase();
+      if (method !== 'GET') p.then(function(r){ if (r.ok) changed = true; }, function(){});
+      return p;
+    };
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'hidden' && changed) {
+        changed = false;
+        origFetch(location.href, {credentials: 'same-origin'}).catch(function(){});
+      }
+    });
   }
 
 })();
