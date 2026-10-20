@@ -28,6 +28,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
       # Git-Daten entfernen, sonst prüft Vercel die Commit-E-Mail und blockiert
       - name: Git-Daten entfernen
         run: rm -rf .git
