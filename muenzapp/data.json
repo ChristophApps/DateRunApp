@@ -2200,7 +2200,7 @@
       "m": "N/A"
     },
     "Belgien:2012:CC3": {
-      "v": "30*",
+      "v": "30*1",
       "img": "https://www.eurocollection.co.uk/Euros/Belgium/Belgium 2012 E2 CC 1.JPG",
       "m": "5000000",
       "cn": "Ten Years of Euro (TYE)"
@@ -2406,7 +2406,8 @@
     },
     "Belgien:2017:1c": {
       "img": "https://www.eurocollection.co.uk/Euros/Belgium/Belgium 2017 1c.JPG",
-      "m": "1634500"
+      "m": "1634500",
+      "v": "3°"
     },
     "Belgien:2017:2c": {
       "img": "https://www.eurocollection.co.uk/Euros/Belgium/Belgium 2017 2c.JPG",
@@ -2510,7 +2511,8 @@
     },
     "Belgien:2019:5c": {
       "img": "https://www.eurocollection.co.uk/Euros/Belgium/Belgium 2019 5c.JPG",
-      "m": "10000000"
+      "m": "10000000",
+      "v": "5°"
     },
     "Belgien:2019:10c": {
       "v": "✔°",
@@ -2652,9 +2654,9 @@
       "m": "NIFC"
     },
     "Belgien:2022:5c": {
-      "v": " ✔ 1/2 1°",
       "img": "https://www.eurocollection.co.uk/Euros/Belgium/Belgium 2022 5c.JPG",
-      "m": "15000000"
+      "m": "15000000",
+      "v": "[2/2°]"
     },
     "Belgien:2022:10c": {
       "img": "https://www.eurocollection.co.uk/Euros/Belgium/Belgium 2022 10c.JPG",
@@ -2751,7 +2753,8 @@
     },
     "Belgien:2024:5c": {
       "img": "https://www.eurocollection.co.uk/Euros/Belgium/Belgium 2024 5c.JPG",
-      "m": "13900000"
+      "m": "13900000",
+      "v": "1°"
     },
     "Belgien:2024:10c": {
       "img": "https://www.eurocollection.co.uk/Euros/Belgium/Belgium 2024 10c.JPG",
@@ -2825,7 +2828,8 @@
     "Belgien:2025:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/Belgium/Belgium 2025 E2 CC 1.JPG",
       "m": "1000000",
-      "cn": "National Lottery"
+      "cn": "National Lottery",
+      "v": "1°0°"
     },
     "Belgien:2025:CC2": {
       "img": "https://www.eurocollection.co.uk/Euros/Belgium/Belgium 2025 E2 CC 2.JPG",
@@ -2893,7 +2897,7 @@
       "m": "CIRC"
     },
     "Bulgarien:2026:5c": {
-      "v": "0*",
+      "v": "0*5",
       "img": "https://www.eurocollection.co.uk/Euros/Bulgaria/Bulgaria 2026 5c.JPG",
       "m": "CIRC"
     },
@@ -3928,7 +3932,8 @@
     "Estland:2016:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/Estonia/Estonia 2016 E2 CC 1.JPG",
       "m": "495000",
-      "cn": "Paul Keres"
+      "cn": "Paul Keres",
+      "v": "3°"
     },
     "Estland:2016:CC2": {
       "ct": "x",
@@ -4374,7 +4379,8 @@
     "Estland:2025:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/Estonia/Estonia 2025 E2 CC 1.JPG",
       "m": "841500",
-      "cn": "First Text in Estonian"
+      "cn": "First Text in Estonian",
+      "v": "3°"
     },
     "Estland:2025:CC2": {
       "ct": "x",
@@ -4411,7 +4417,8 @@
     "Estland:2026:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/Estonia/Estonia 2026 E2 CC 1.JPG",
       "m": "CIRC",
-      "cn": "Sipsik"
+      "cn": "Sipsik",
+      "v": "0*"
     },
     "Estland:2026:CC2": {
       "ct": "x",
@@ -5155,7 +5162,8 @@
     "Finnland:2013:2€": {
       "v": "✔°",
       "img": "https://www.eurocollection.co.uk/Euros/Finland/Finland 2013 E2.JPG",
-      "m": "853500"
+      "m": "853500",
+      "ct": "yellow"
     },
     "Finnland:2013:CC1": {
       "v": "0*",
@@ -5200,11 +5208,13 @@
     },
     "Finnland:2014:1€": {
       "img": "https://www.eurocollection.co.uk/Euros/Finland/Finland 2014 E1.JPG",
-      "m": "119100"
+      "m": "119100",
+      "v": "5°"
     },
     "Finnland:2014:2€": {
       "img": "https://www.eurocollection.co.uk/Euros/Finland/Finland 2014 E2.JPG",
-      "m": "126100"
+      "m": "126100",
+      "ct": "yellow"
     },
     "Finnland:2014:CC1": {
       "v": "5°",
@@ -5253,7 +5263,8 @@
     },
     "Finnland:2015:2€": {
       "img": "https://www.eurocollection.co.uk/Euros/Finland/Finland 2015 E2.JPG",
-      "m": "169100"
+      "m": "169100",
+      "ct": "yellow"
     },
     "Finnland:2015:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/Finland/Finland 2015 E2 CC 2.JPG",
@@ -5300,7 +5311,9 @@
     },
     "Finnland:2016:2€": {
       "img": "https://www.eurocollection.co.uk/Euros/Finland/Finland 2016 E2.JPG",
-      "m": "172100"
+      "m": "172100",
+      "v": "5°",
+      "ct": "yellow"
     },
     "Finnland:2016:CC1": {
       "v": "3°",
@@ -5349,7 +5362,9 @@
     },
     "Finnland:2017:2€": {
       "img": "https://www.eurocollection.co.uk/Euros/Finland/Finland 2017 E2.JPG",
-      "m": "74900"
+      "m": "74900",
+      "v": "5°",
+      "ct": "yellow"
     },
     "Finnland:2017:CC1": {
       "v": "3",
@@ -5397,18 +5412,20 @@
     "Finnland:2018:2€": {
       "v": "✔",
       "img": "https://www.eurocollection.co.uk/Euros/Finland/Finland 2018 E2.JPG",
-      "m": "2040500"
+      "m": "2040500",
+      "ct": "blue"
     },
     "Finnland:2018:CC1": {
       "v": "5°",
-      "img": "https://www.eurocollection.co.uk/Euros/Finland/Finland 2026 E2 CC 2.JPG",
+      "img": "https://www.eurocollection.co.uk/Euros/Finland/Finland 2018 E2 CC 1.JPG",
       "m": "1000000",
       "cn": "Koli Landscape"
     },
     "Finnland:2018:CC2": {
-      "img": "https://www.eurocollection.co.uk/Euros/Finland/Finland 2018 E2 CC 1.JPG",
+      "img": "https://www.eurocollection.co.uk/Euros/Finland/Finland%202018%20E2%20CC%202.JPG",
       "m": "1000000",
-      "cn": "Finnish Sauna Culture"
+      "cn": "Finnish Sauna Culture",
+      "v": "5°"
     },
     "Finnland:2018:CC3": {
       "ct": "x",
@@ -6824,7 +6841,8 @@
     },
     "Frankreich:2019:2c": {
       "img": "https://www.eurocollection.co.uk/Euros/France/France 2019 2c.JPG",
-      "m": "161280000"
+      "m": "161280000",
+      "v": "5°"
     },
     "Frankreich:2019:5c": {
       "v": "✔",
@@ -7090,7 +7108,8 @@
     },
     "Frankreich:2024:1c": {
       "img": "https://www.eurocollection.co.uk/Euros/France/France 2024 1c.JPG",
-      "m": "CIRC"
+      "m": "CIRC",
+      "v": "1°"
     },
     "Frankreich:2024:2c": {
       "v": "1",
@@ -7113,7 +7132,8 @@
     },
     "Frankreich:2024:50c": {
       "img": "https://www.eurocollection.co.uk/Euros/France/France 2024 50c.JPG",
-      "m": "CIRC"
+      "m": "CIRC",
+      "v": "3°"
     },
     "Frankreich:2024:1€": {
       "img": "https://www.eurocollection.co.uk/Euros/France/France 2024 E1.JPG",
@@ -7828,7 +7848,8 @@
     "Griechenland:2013:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/Greece/Greece 2013 E2 CC 2.JPG",
       "m": "750000",
-      "cn": "Union of Crete with Greece"
+      "cn": "Union of Crete with Greece",
+      "v": "5°"
     },
     "Griechenland:2013:CC2": {
       "img": "https://www.eurocollection.co.uk/Euros/Greece/Greece 2013 E2 CC 1.JPG",
@@ -7883,7 +7904,8 @@
     "Griechenland:2014:CC2": {
       "img": "https://www.eurocollection.co.uk/Euros/Greece/Greece 2014 E2 CC 2.JPG",
       "m": "750000",
-      "cn": "Union of the Ionian Islands with Greece"
+      "cn": "Union of the Ionian Islands with Greece",
+      "v": "5°"
     },
     "Griechenland:2014:CC3": {
       "ct": "x",
@@ -7982,7 +8004,8 @@
     "Griechenland:2016:CC2": {
       "img": "https://www.eurocollection.co.uk/Euros/Greece/Greece 2016 E2 CC 2.JPG",
       "m": "750000",
-      "cn": "Dimitri Mitropoulos"
+      "cn": "Dimitri Mitropoulos",
+      "v": "5"
     },
     "Griechenland:2016:CC3": {
       "ct": "x",
@@ -8046,7 +8069,8 @@
     },
     "Griechenland:2018:2c": {
       "img": "https://www.eurocollection.co.uk/Euros/Greece/Greece 2018 2c.JPG",
-      "m": "14000000"
+      "m": "14000000",
+      "v": "5°"
     },
     "Griechenland:2018:5c": {
       "v": "3°",
@@ -8306,7 +8330,8 @@
     },
     "Griechenland:2023:5c": {
       "img": "https://www.eurocollection.co.uk/Euros/Greece/Greece 2023 5c.JPG",
-      "m": "13000000"
+      "m": "13000000",
+      "v": "5"
     },
     "Griechenland:2023:10c": {
       "v": "5°",
@@ -8361,7 +8386,8 @@
     },
     "Griechenland:2024:5c": {
       "img": "https://www.eurocollection.co.uk/Euros/Greece/Greece 2024 5c.JPG",
-      "m": "7000000"
+      "m": "7000000",
+      "v": "1"
     },
     "Griechenland:2024:10c": {
       "v": "5°",
@@ -8443,7 +8469,8 @@
     "Griechenland:2025:CC2": {
       "img": "https://www.eurocollection.co.uk/Euros/Greece/Greece 2025 E2 CC 2.JPG",
       "m": "750000",
-      "cn": "Laskarina Bouboulina"
+      "cn": "Laskarina Bouboulina",
+      "v": "1°"
     },
     "Griechenland:2025:CC3": {
       "ct": "x",
@@ -8496,7 +8523,8 @@
       "img": "https://www.eurocollection.co.uk/Euros/Greece/Greece%202002%205c%20Variant.JPG"
     },
     "Griechenland:EFS:10c": {
-      "img": "https://www.eurocollection.co.uk/Euros/Greece/Greece%202002%2010c%20Variant.JPG"
+      "img": "https://www.eurocollection.co.uk/Euros/Greece/Greece%202002%2010c%20Variant.JPG",
+      "v": "5°"
     },
     "Griechenland:EFS:20c": {
       "img": "https://www.eurocollection.co.uk/Euros/Greece/Greece%202002%2020c%20Variant.JPG"
@@ -9758,7 +9786,8 @@
     "Irland:2026:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/Ireland/Ireland 2026 E2 CC 1.JPG",
       "m": "500000",
-      "cn": "Presidency of the EU Council"
+      "cn": "Presidency of the EU Council",
+      "v": "0*"
     },
     "Irland:2026:CC3": {
       "ct": "x",
@@ -10968,7 +10997,7 @@
       "m": "NIFC"
     },
     "Italien:2024:5c": {
-      "v": "3°",
+      "v": "3°3",
       "img": "https://www.eurocollection.co.uk/Euros/Italy/Italy 2024 5c.JPG",
       "m": "200000000"
     },
@@ -11024,7 +11053,8 @@
     },
     "Italien:2025:5c": {
       "img": "https://www.eurocollection.co.uk/Euros/Italy/Italy 2025 5c.JPG",
-      "m": "CIRC"
+      "m": "CIRC",
+      "v": "3°"
     },
     "Italien:2025:10c": {
       "img": "https://www.eurocollection.co.uk/Euros/Italy/Italy 2025 10c.JPG",
@@ -11050,7 +11080,8 @@
     "Italien:2025:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/Italy/Italy 2025 E2 CC 1.JPG",
       "m": "3000000",
-      "cn": "Jubilee of 2025"
+      "cn": "Jubilee of 2025",
+      "v": "1°"
     },
     "Italien:2025:CC2": {
       "v": "3",
@@ -11220,7 +11251,8 @@
     },
     "Kroatien:2025:5c": {
       "img": "https://www.eurocollection.co.uk/Euros/Croatia/Croatia 2025 5c.JPG",
-      "m": "15420000"
+      "m": "15420000",
+      "v": "5"
     },
     "Kroatien:2025:10c": {
       "v": "1",
@@ -12455,7 +12487,8 @@
     "Litauen/Lietuva:2025:CC2": {
       "img": "https://www.eurocollection.co.uk/Euros/Lithuania/Lithuania 2025 E2 CC 2.JPG",
       "m": "495000",
-      "cn": "Mažoji Lietuva [1]"
+      "cn": "Mažoji Lietuva [1]",
+      "v": "0*"
     },
     "Litauen/Lietuva:2025:CC3": {
       "ct": "x",
@@ -12496,7 +12529,8 @@
     "Litauen/Lietuva:2026:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/Lithuania/Lithuania 2026 E2 CC 1.JPG",
       "m": "495000",
-      "cn": "Energy Independence"
+      "cn": "Energy Independence",
+      "v": "0*"
     },
     "Litauen/Lietuva:2026:CC2": {
       "img": "https://www.eurocollection.co.uk/Euros/Lithuania/Lithuania 2026 E2 CC 2.JPG",
@@ -12775,7 +12809,8 @@
     },
     "Luxemburg:2007:2c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2007 2c.JPG",
-      "m": "8000000"
+      "m": "8000000",
+      "v": "5°"
     },
     "Luxemburg:2007:5c": {
       "v": "✔°",
@@ -12879,7 +12914,8 @@
     },
     "Luxemburg:2009:1c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2009 1c.JPG",
-      "m": "4000000"
+      "m": "4000000",
+      "v": "5°"
     },
     "Luxemburg:2009:2c": {
       "v": "5",
@@ -12927,7 +12963,8 @@
     "Luxemburg:2009:CC3": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2009 E2 CC 1.JPG",
       "m": "800000",
-      "cn": "Economic and Monetary Union (EMU)"
+      "cn": "Economic and Monetary Union (EMU)",
+      "v": "5°"
     },
     "Luxemburg:2010:1c": {
       "v": "✔",
@@ -12936,7 +12973,8 @@
     },
     "Luxemburg:2010:2c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2010 2c.JPG",
-      "m": "8000000"
+      "m": "8000000",
+      "v": "3°"
     },
     "Luxemburg:2010:5c": {
       "v": "5",
@@ -13077,7 +13115,8 @@
     "Luxemburg:2012:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2012 E2 CC 2.JPG",
       "m": "700000",
-      "cn": "Death of Guillaume IV"
+      "cn": "Death of Guillaume IV",
+      "v": "30*"
     },
     "Luxemburg:2012:CC2": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2012 E2 CC 3.JPG",
@@ -13101,7 +13140,8 @@
     },
     "Luxemburg:2013:5c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2013 5c.JPG",
-      "m": "7100000"
+      "m": "7100000",
+      "v": "5°"
     },
     "Luxemburg:2013:10c": {
       "v": "✔",
@@ -13149,7 +13189,8 @@
     },
     "Luxemburg:2014:2c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2014 2c.JPG",
-      "m": "10000000"
+      "m": "10000000",
+      "v": "1°"
     },
     "Luxemburg:2014:5c": {
       "v": "5°",
@@ -13199,7 +13240,8 @@
     },
     "Luxemburg:2015:1c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2015 1c.JPG",
-      "m": "5000000"
+      "m": "5000000",
+      "v": "3°"
     },
     "Luxemburg:2015:2c": {
       "v": "1°",
@@ -13254,7 +13296,8 @@
     },
     "Luxemburg:2016:1c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2016 1c.JPG",
-      "m": "5000000"
+      "m": "5000000",
+      "v": "3°"
     },
     "Luxemburg:2016:2c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2016 2c.JPG",
@@ -13361,7 +13404,8 @@
     },
     "Luxemburg:2018:5c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2018 5c.JPG",
-      "m": "1450000"
+      "m": "1450000",
+      "v": "5°"
     },
     "Luxemburg:2018:10c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2018 10c.JPG",
@@ -13390,7 +13434,7 @@
       "cn": "Constitution of Luxembourg"
     },
     "Luxemburg:2018:CC2": {
-      "v": "0*",
+      "v": "0*1",
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2018 E2 CC 2.JPG",
       "m": "300000",
       "cn": "Grand Duke Guillaume I"
@@ -13458,7 +13502,8 @@
     },
     "Luxemburg:2020:5c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2020 5c.JPG",
-      "m": "2050000"
+      "m": "2050000",
+      "v": "5°"
     },
     "Luxemburg:2020:10c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2020 10c.JPG",
@@ -13505,7 +13550,8 @@
     },
     "Luxemburg:2021:5c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2021 5c.JPG",
-      "m": "3050000"
+      "m": "3050000",
+      "v": "3°"
     },
     "Luxemburg:2021:10c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2021 10c.JPG",
@@ -13552,11 +13598,13 @@
     },
     "Luxemburg:2022:5c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2022 5c.JPG",
-      "m": "3050000"
+      "m": "3050000",
+      "v": "1°"
     },
     "Luxemburg:2022:10c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2022 10c.JPG",
-      "m": "2050000"
+      "m": "2050000",
+      "v": "3°"
     },
     "Luxemburg:2022:20c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2022 20c.JPG",
@@ -13591,35 +13639,41 @@
     },
     "Luxemburg:2024:1c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2024 1c.JPG",
-      "m": "50000"
+      "m": "50000",
+      "v": "0*"
     },
     "Luxemburg:2024:2c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2024 2c.JPG",
-      "m": "50000"
+      "m": "50000",
+      "v": "0*"
     },
     "Luxemburg:2024:5c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2024 5c.JPG",
-      "m": "2050000"
+      "m": "2050000",
+      "v": "1°0*"
     },
     "Luxemburg:2024:10c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2024 10c.JPG",
-      "m": "1050000"
+      "m": "1050000",
+      "v": "1°0*"
     },
     "Luxemburg:2024:20c": {
-      "v": "1°",
+      "v": "1°0*",
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2024 20c.JPG",
       "m": "3050000"
     },
     "Luxemburg:2024:50c": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2024 50c.JPG",
-      "m": "1050000"
+      "m": "1050000",
+      "v": "0*"
     },
     "Luxemburg:2024:1€": {
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2024 E1.JPG",
-      "m": "50000"
+      "m": "50000",
+      "v": "0*"
     },
     "Luxemburg:2024:2€": {
-      "v": "1",
+      "v": "10*",
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2024 E2.JPG",
       "m": "3050000"
     },
@@ -13737,7 +13791,8 @@
       "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg 2023 MDP 2c.JPG"
     },
     "Luxemburg:2023 KNM:5c": {
-      "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg%202023%205c.JPG"
+      "img": "https://www.eurocollection.co.uk/Euros/Luxembourg/Luxembourg%202023%205c.JPG",
+      "v": "1°"
     },
     "Luxemburg:2023 MDP:5c": {
       "ct": "x",
@@ -13903,7 +13958,8 @@
     "Malta:2009:CC3": {
       "img": "https://www.eurocollection.co.uk/Euros/Malta/Malta 2009 E2 CC 1.JPG",
       "m": "700000",
-      "cn": "Economic and Monetary Union (EMU)"
+      "cn": "Economic and Monetary Union (EMU)",
+      "v": "1°"
     },
     "Malta:2010:1c": {
       "ct": "x",
@@ -14276,7 +14332,8 @@
     "Malta:2017:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/Malta/Malta 2017 E2 CC 1.JPG",
       "m": "405000",
-      "cn": "Temples of Ħaġar Qim [2]"
+      "cn": "Temples of Ħaġar Qim [2]",
+      "v": "5°"
     },
     "Malta:2017:CC2": {
       "v": "3°",
@@ -14574,7 +14631,8 @@
     },
     "Malta:2023:1€": {
       "img": "https://www.eurocollection.co.uk/Euros/Malta/Malta 2023 E1.JPG",
-      "m": "1000000"
+      "m": "1000000",
+      "v": "5°"
     },
     "Malta:2023:2€": {
       "img": "https://www.eurocollection.co.uk/Euros/Malta/Malta 2023 E2.JPG",
@@ -15420,7 +15478,8 @@
     },
     "Monaca:2016:1€": {
       "img": "https://www.eurocollection.co.uk/Euros/Monaco/Monaco 2016 E1.JPG",
-      "m": "1000000"
+      "m": "1000000",
+      "v": "3°"
     },
     "Monaca:2016:2€": {
       "v": "3°",
@@ -15745,7 +15804,8 @@
     },
     "Monaca:2023:1€": {
       "img": "https://www.eurocollection.co.uk/Euros/Monaco/Monaco 2023 E1.JPG",
-      "m": "1256833"
+      "m": "1256833",
+      "v": "3°"
     },
     "Monaca:2023:2€": {
       "v": "1°",
@@ -15817,7 +15877,8 @@
     },
     "Monaca:2025:2€": {
       "img": "https://www.eurocollection.co.uk/Euros/Monaco/Monaco 2025 E2.JPG",
-      "m": "1207000"
+      "m": "1207000",
+      "v": "3"
     },
     "Monaca:2025:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/Monaco/Monaco 2025 E2 CC 1.JPG",
@@ -16200,7 +16261,8 @@
     },
     "Niederlande:2005:2€": {
       "img": "https://www.eurocollection.co.uk/Euros/Netherlands/Netherlands 2005 E2.JPG",
-      "m": "200000"
+      "m": "200000",
+      "v": "5°5"
     },
     "Niederlande:2005:CC1": {
       "ct": "x",
@@ -17010,7 +17072,8 @@
     "Niederlande:2022:CC3": {
       "img": "https://www.eurocollection.co.uk/Euros/Netherlands/Netherlands 2022 E2 CC 1.JPG",
       "m": "570000",
-      "cn": "Erasmus Programme"
+      "cn": "Erasmus Programme",
+      "v": "5°"
     },
     "Niederlande:2023:1c": {
       "img": "https://www.eurocollection.co.uk/Euros/Netherlands/Netherlands 2023 1c.JPG",
@@ -17031,7 +17094,8 @@
     },
     "Niederlande:2023:20c": {
       "img": "https://www.eurocollection.co.uk/Euros/Netherlands/Netherlands 2023 20c.JPG",
-      "m": "16000000"
+      "m": "16000000",
+      "v": "1°"
     },
     "Niederlande:2023:50c": {
       "img": "https://www.eurocollection.co.uk/Euros/Netherlands/Netherlands 2023 50c.JPG",
@@ -17067,7 +17131,8 @@
     },
     "Niederlande:2024:5c": {
       "img": "https://www.eurocollection.co.uk/Euros/Netherlands/Netherlands 2024 5c.JPG",
-      "m": "5000000"
+      "m": "5000000",
+      "v": "5°"
     },
     "Niederlande:2024:10c": {
       "img": "https://www.eurocollection.co.uk/Euros/Netherlands/Netherlands 2024 10c.JPG",
@@ -17171,7 +17236,8 @@
     },
     "Niederlande:2026:2€": {
       "img": "https://www.eurocollection.co.uk/Euros/Netherlands/Netherlands 2026 E2.JPG",
-      "m": "CIRC"
+      "m": "CIRC",
+      "v": "1"
     },
     "Niederlande:2026:CC1": {
       "ct": "x",
@@ -17893,7 +17959,8 @@
     "Portugal:2015:CC3": {
       "img": "https://www.eurocollection.co.uk/Euros/Portugal/Portugal 2015 E2 CC 1.JPG",
       "m": "500000",
-      "cn": "EU Flag"
+      "cn": "EU Flag",
+      "v": "0*"
     },
     "Portugal:2016:1c": {
       "v": "5",
@@ -18734,7 +18801,8 @@
     },
     "San Marino:2008:50c": {
       "img": "https://www.eurocollection.co.uk/Euros/San Marino/San Marino 2008 50c.JPG",
-      "m": "1337000"
+      "m": "1337000",
+      "v": "5°"
     },
     "San Marino:2008:1€": {
       "img": "https://www.eurocollection.co.uk/Euros/San Marino/San Marino 2008 E1.JPG",
@@ -18967,11 +19035,13 @@
     },
     "San Marino:2013:1€": {
       "img": "https://www.eurocollection.co.uk/Euros/San Marino/San Marino 2013 E1.JPG",
-      "m": "419205"
+      "m": "419205",
+      "v": "3°"
     },
     "San Marino:2013:2€": {
       "img": "https://www.eurocollection.co.uk/Euros/San Marino/San Marino 2013 E2.JPG",
-      "m": "567624"
+      "m": "567624",
+      "v": "3°"
     },
     "San Marino:2013:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/San Marino/San Marino 2013 E2 CC 1.JPG",
@@ -19205,7 +19275,8 @@
     },
     "San Marino:2018:50c": {
       "img": "https://www.eurocollection.co.uk/Euros/San Marino/San Marino 2018 50c.JPG",
-      "m": "1097400"
+      "m": "1097400",
+      "v": "5°"
     },
     "San Marino:2018:1€": {
       "v": "5°",
@@ -19252,7 +19323,8 @@
     },
     "San Marino:2019:50c": {
       "img": "https://www.eurocollection.co.uk/Euros/San Marino/San Marino 2019 50c.JPG",
-      "m": "796500"
+      "m": "796500",
+      "v": "0*"
     },
     "San Marino:2019:1€": {
       "v": "1°",
@@ -19357,7 +19429,8 @@
     },
     "San Marino:2021:2€": {
       "img": "https://www.eurocollection.co.uk/Euros/San Marino/San Marino 2021 E2.JPG",
-      "m": "785355"
+      "m": "785355",
+      "v": "5°"
     },
     "San Marino:2021:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/San Marino/San Marino 2021 E2 CC 1.JPG",
@@ -19404,7 +19477,8 @@
     },
     "San Marino:2022:2€": {
       "img": "https://www.eurocollection.co.uk/Euros/San Marino/San Marino 2022 E2.JPG",
-      "m": "450366"
+      "m": "450366",
+      "v": "3°"
     },
     "San Marino:2022:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/San Marino/San Marino 2022 E2 CC 1.JPG",
@@ -19450,7 +19524,8 @@
     },
     "San Marino:2023:2€": {
       "img": "https://www.eurocollection.co.uk/Euros/San Marino/San Marino 2023 E2.JPG",
-      "m": "664173"
+      "m": "664173",
+      "v": "3°"
     },
     "San Marino:2023:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/San Marino/San Marino 2023 E2 CC 1.JPG",
@@ -19786,7 +19861,8 @@
     },
     "Slowakei:2012:2€": {
       "img": "https://www.eurocollection.co.uk/Euros/Slovakia/Slovakia 2012 E2.JPG",
-      "m": "NIFC"
+      "m": "NIFC",
+      "v": "3°"
     },
     "Slowakei:2012:CC1": {
       "ct": "x",
@@ -20409,7 +20485,8 @@
     },
     "Slowakei:2025:5c": {
       "img": "https://www.eurocollection.co.uk/Euros/Slovakia/Slovakia 2025 5c.JPG",
-      "m": "10000000"
+      "m": "10000000",
+      "v": "1"
     },
     "Slowakei:2025:10c": {
       "img": "https://www.eurocollection.co.uk/Euros/Slovakia/Slovakia 2025 10c.JPG",
@@ -20425,7 +20502,8 @@
     },
     "Slowakei:2025:1€": {
       "img": "https://www.eurocollection.co.uk/Euros/Slovakia/Slovakia 2025 E1.JPG",
-      "m": "1000000"
+      "m": "1000000",
+      "v": "3°"
     },
     "Slowakei:2025:2€": {
       "v": "1",
@@ -20486,7 +20564,8 @@
     },
     "Slowakei:2026:CC2": {
       "img": "https://www.eurocollection.co.uk/Euros/Slovakia/Slovakia 2026 E2 CC 2.JPG",
-      "cn": "Czechoslovak Victory of Euro 1976"
+      "cn": "Czechoslovak Victory of Euro 1976",
+      "v": "0°"
     },
     "Slowakei:2026:CC3": {
       "ct": "x",
@@ -21452,7 +21531,8 @@
     "Slowenien:2026:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/Slovenia/Slovenia 2026 E2 CC 1.JPG",
       "m": "991000",
-      "cn": "Ivan Cankar"
+      "cn": "Ivan Cankar",
+      "v": "0°"
     },
     "Slowenien:2026:CC2": {
       "ct": "x",
@@ -22940,12 +23020,14 @@
     "Spanien:2026:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/Spain/Spain 2026 E2 CC 1.JPG",
       "m": "<1.500.000",
-      "cn": "Poblet Monestary [1]"
+      "cn": "Poblet Monestary [1]",
+      "v": "0°"
     },
     "Spanien:2026:CC2": {
       "img": "https://www.eurocollection.co.uk/Euros/Spain/Spain 2026 E2 CC 2.JPG",
       "m": "<1.500.000",
-      "cn": "Spain and Disability"
+      "cn": "Spain and Disability",
+      "v": "0*"
     },
     "Spanien:2026:CC3": {
       "ct": "x",
@@ -24228,7 +24310,8 @@
     },
     "Zypern:2010:50c": {
       "img": "https://www.eurocollection.co.uk/Euros/Cyprus/Cyprus 2010 50c.JPG",
-      "m": "200000"
+      "m": "200000",
+      "v": "5"
     },
     "Zypern:2010:1€": {
       "v": "✔°",
@@ -24992,7 +25075,8 @@
     "Zypern:2026:CC1": {
       "img": "https://www.eurocollection.co.uk/Euros/Cyprus/Cyprus 2026 E2 CC 1.JPG",
       "m": "250000",
-      "cn": "Presidency of the EU Council"
+      "cn": "Presidency of the EU Council",
+      "v": "0*"
     },
     "Zypern:2026:CC2": {
       "ct": "x",
@@ -26303,6 +26387,10 @@
     "Österreich:2026:CC3": {
       "ct": "x",
       "m": "N/A"
+    },
+    "Griechenland:2026:CC1": {
+      "v": "0°",
+      "img": "https://www.eurocollection.co.uk/Euros/Greece/Greece 2026 E2 CC 1.JPG"
     }
   },
   "coins_mint": {
@@ -29866,7 +29954,7 @@
       "m": "6.000.000"
     },
     "Deutschland:2013:CC2:J": {
-      "v": "5",
+      "v": "51",
       "ct": "blue",
       "img": "https://www.eurocollection.co.uk/Euros/Germany/Germany 2013 E2 CC 2 J.JPG",
       "m": "6.000.000"
@@ -30178,7 +30266,8 @@
     "Deutschland:2014:2c:J": {
       "ct": "green",
       "img": "https://www.eurocollection.co.uk/Euros/Germany/Germany 2014 2c J.JPG",
-      "m": "64890000"
+      "m": "64890000",
+      "v": "3°"
     },
     "Deutschland:2014:10c:A": {
       "ct": "nifc",
@@ -31118,7 +31207,7 @@
       "m": "7200000"
     },
     "Deutschland:2017:CC1:G": {
-      "v": "1",
+      "v": "1[proof]",
       "ct": "blue",
       "img": "https://www.eurocollection.co.uk/Euros/Germany/Germany 2017 E2 CC 1 G.JPG",
       "m": "4200000"
@@ -32060,7 +32149,8 @@
     "Deutschland:2020:2c:G": {
       "ct": "green",
       "img": "https://www.eurocollection.co.uk/Euros/Germany/Germany 2020 2c G.JPG",
-      "m": "46060000"
+      "m": "46060000",
+      "v": "1°"
     },
     "Deutschland:2020:2c:J": {
       "ct": "green",
@@ -32969,7 +33059,8 @@
     "Deutschland:2023:1c:J": {
       "ct": "green",
       "img": "https://www.eurocollection.co.uk/Euros/Germany/Germany 2023 1c J.JPG",
-      "m": "30240000"
+      "m": "30240000",
+      "v": "1°"
     },
     "Deutschland:2023:2c:A": {
       "ct": "green",
@@ -33294,7 +33385,8 @@
     "Deutschland:2024:10c:J": {
       "ct": "green",
       "img": "https://www.eurocollection.co.uk/Euros/Germany/Germany 2024 10c J.JPG",
-      "m": "10290000"
+      "m": "10290000",
+      "v": "1°"
     },
     "Deutschland:2024:20c:A": {
       "ct": "blue",
@@ -33699,7 +33791,7 @@
       "m": "6.000.000"
     },
     "Deutschland:2026:CC2:F": {
-      "v": "3",
+      "v": "31",
       "ct": "green",
       "img": "https://www.eurocollection.co.uk/Euros/Germany/Germany 2026 E2 CC 2 F.JPG",
       "m": "6.000.000"
@@ -33913,7 +34005,8 @@
     "Deutschland:2026:CC2:G": {
       "ct": "blue",
       "img": "https://www.eurocollection.co.uk/Euros/Germany/Germany 2026 E2 CC 2 G.JPG",
-      "m": "6.000.000"
+      "m": "6.000.000",
+      "v": "1"
     }
   },
   "mintage": {
@@ -33988,7 +34081,7 @@
     "Belgien:2014:1c": "NIFC",
     "Belgien:2015:1c": "15000000",
     "Belgien:2016:1c": "29750000",
-    "Belgien:2017:1c": "1634500",
+    "Belgien:2017:1c": "1.634.500",
     "Belgien:2018:1c": "NIFC",
     "Belgien:2019:1c": "NIFC",
     "Belgien:2020:1c": "NIFC",
@@ -34143,7 +34236,7 @@
     "Frankreich:2016:2c": "192500000",
     "Frankreich:2017:2c": "200000000",
     "Frankreich:2018:2c": "142600000",
-    "Frankreich:2019:2c": "161280000",
+    "Frankreich:2019:2c": "161.280.000",
     "Frankreich:2020:2c": "101304000",
     "Frankreich:2021:2c": "133900000",
     "Frankreich:2022:2c": "134946000",
@@ -34352,12 +34445,12 @@
     "Belgien:2016:5c": "28500000",
     "Belgien:2017:5c": "48444500",
     "Belgien:2018:5c": "5300000",
-    "Belgien:2019:5c": "10000000",
+    "Belgien:2019:5c": "10.000.000",
     "Belgien:2020:5c": "NIFC",
     "Belgien:2021:5c": "NIFC",
-    "Belgien:2022:5c": "15000000",
+    "Belgien:2022:5c": "15.000.000",
     "Belgien:2023:5c": "9000000",
-    "Belgien:2024:5c": "13900000",
+    "Belgien:2024:5c": "13.900.000",
     "Belgien:2025:5c": "36400000",
     "Belgien:2026:5c": "???",
     "Irland:2002:5c": "456270000",
@@ -34421,7 +34514,7 @@
     "Slowakei:2022:5c": "10500000",
     "Slowakei:2023:5c": "3000000",
     "Slowakei:2024:5c": "10000000",
-    "Slowakei:2025:5c": "10000000",
+    "Slowakei:2025:5c": "10.000.000",
     "Slowakei:2026:5c": "10000000",
     "Litauen/Lietuva:2015:5c": "60000000",
     "Litauen/Lietuva:2016:5c": "N/A",
@@ -34984,7 +35077,7 @@
     "San Marino:2005:50c": "179712",
     "San Marino:2006:50c": "198880",
     "San Marino:2007:50c": "315000",
-    "San Marino:2008:50c": "1337000",
+    "San Marino:2008:50c": "1.337.000",
     "San Marino:2009:50c": "NIFC",
     "San Marino:2010:50c": "NIFC",
     "San Marino:2011:50c": "NIFC",
@@ -34994,8 +35087,8 @@
     "San Marino:2015:50c": "747601",
     "San Marino:2016:50c": "NIFC",
     "San Marino:2017:50c": "NIFC",
-    "San Marino:2018:50c": "1097400",
-    "San Marino:2019:50c": "796500",
+    "San Marino:2018:50c": "1.097.400",
+    "San Marino:2019:50c": "796.500",
     "San Marino:2020:50c": "600000",
     "San Marino:2021:50c": "200000",
     "San Marino:2022:50c": "800000",
@@ -35145,7 +35238,7 @@
     "Slowakei:2022:1€": "NIFC",
     "Slowakei:2023:1€": "NIFC",
     "Slowakei:2024:1€": "1000000",
-    "Slowakei:2025:1€": "1000000",
+    "Slowakei:2025:1€": "1.000.000",
     "Slowakei:2026:1€": "NIFC",
     "Litauen/Lietuva:2015:1€": "35000000",
     "Litauen/Lietuva:2016:1€": "N/A",
@@ -35170,7 +35263,7 @@
     "San Marino:2010:1€": "987534",
     "San Marino:2011:1€": "NIFC",
     "San Marino:2012:1€": "NIFC",
-    "San Marino:2013:1€": "419205",
+    "San Marino:2013:1€": "419.205",
     "San Marino:2014:1€": "1513500",
     "San Marino:2015:1€": "1673200",
     "San Marino:2016:1€": "NIFC",
@@ -35349,9 +35442,9 @@
     "San Marino:2008:2€": "NIFC",
     "San Marino:2009:2€": "NIFC",
     "San Marino:2010:2€": "NIFC",
-    "San Marino:2011:2€": "624431",
+    "San Marino:2011:2€": "624.431",
     "San Marino:2012:2€": "616249",
-    "San Marino:2013:2€": "567624",
+    "San Marino:2013:2€": "567.624",
     "San Marino:2014:2€": "NIFC",
     "San Marino:2015:2€": "NIFC",
     "San Marino:2016:2€": "871667",
@@ -35359,9 +35452,9 @@
     "San Marino:2018:2€": "NIFC",
     "San Marino:2019:2€": "356500",
     "San Marino:2020:2€": "621257",
-    "San Marino:2021:2€": "785355",
-    "San Marino:2022:2€": "450366",
-    "San Marino:2023:2€": "664173",
+    "San Marino:2021:2€": "785.355",
+    "San Marino:2022:2€": "450.366",
+    "San Marino:2023:2€": "664.173",
     "San Marino:2024:2€": "800000",
     "San Marino:2025:2€": "600000",
     "San Marino:2026:2€": "815000",
@@ -35444,7 +35537,7 @@
     "Belgien:2022:CC1": "2000000",
     "Belgien:2023:CC1": "NIFC",
     "Belgien:2024:CC1": "2000000",
-    "Belgien:2025:CC1": "1000000",
+    "Belgien:2025:CC1": "1.000.000",
     "Belgien:2026:CC1": "???",
     "Irland:2002:CC1": "N/A",
     "Irland:2003:CC1": "N/A",
@@ -35470,7 +35563,7 @@
     "Irland:2023:CC1": "500000",
     "Irland:2024:CC1": "N/A",
     "Irland:2025:CC1": "N/A",
-    "Irland:2026:CC1": "500000",
+    "Irland:2026:CC1": "500.000",
     "Slowenien:2007:CC1": "N/A",
     "Slowenien:2008:CC1": "950000",
     "Slowenien:2009:CC1": "N/A",
@@ -35490,7 +35583,7 @@
     "Slowenien:2023:CC1": "990250",
     "Slowenien:2024:CC1": "990250",
     "Slowenien:2025:CC1": "990000",
-    "Slowenien:2026:CC1": "991000",
+    "Slowenien:2026:CC1": "991.000",
     "Slowakei:2009:CC1": "1000000",
     "Slowakei:2010:CC1": "N/A",
     "Slowakei:2011:CC1": "1000000",
@@ -35520,7 +35613,7 @@
     "Litauen/Lietuva:2023:CC1": "450000",
     "Litauen/Lietuva:2024:CC1": "495000",
     "Litauen/Lietuva:2025:CC1": "495000",
-    "Litauen/Lietuva:2026:CC1": "495000",
+    "Litauen/Lietuva:2026:CC1": "495.000",
     "San Marino:2002:CC1": "N/A",
     "San Marino:2003:CC1": "N/A",
     "San Marino:2004:CC1": "NIFC",
@@ -35699,7 +35792,7 @@
     "Litauen/Lietuva:2022:CC2": "495000",
     "Litauen/Lietuva:2023:CC2": "N/A",
     "Litauen/Lietuva:2024:CC2": "N/A",
-    "Litauen/Lietuva:2025:CC2": "495000",
+    "Litauen/Lietuva:2025:CC2": "495.000",
     "Litauen/Lietuva:2026:CC2": "<990.000",
     "San Marino:2002:CC2": "N/A",
     "San Marino:2003:CC2": "N/A",
@@ -35792,7 +35885,7 @@
     "Belgien:2009:CC3": "5000000",
     "Belgien:2010:CC3": "N/A",
     "Belgien:2011:CC3": "N/A",
-    "Belgien:2012:CC3": "5000000",
+    "Belgien:2012:CC3": "5.000.000",
     "Belgien:2013:CC3": "N/A",
     "Belgien:2014:CC3": "N/A",
     "Belgien:2015:CC3": "400000",
@@ -36121,7 +36214,7 @@
     "Griechenland:2015:2c": "32000000",
     "Griechenland:2016:2c": "52000000",
     "Griechenland:2017:2c": "34000000",
-    "Griechenland:2018:2c": "14000000",
+    "Griechenland:2018:2c": "14.000.000",
     "Griechenland:2019:2c": "35000000",
     "Griechenland:2020:2c": "43000000",
     "Griechenland:2021:2c": "25000000",
@@ -36218,7 +36311,7 @@
     "Spanien:2021:5c": "94900000",
     "Spanien:2022:5c": "94300000",
     "Spanien:2023:5c": "137000000",
-    "Spanien:2024:5c": "93800000",
+    "Spanien:2024:5c": "93.800.000",
     "Spanien:2025:5c": "CIRC",
     "Spanien:2026:5c": "???",
     "Niederlande:1999:5c": "213000000",
@@ -36246,7 +36339,7 @@
     "Niederlande:2021:5c": "NIFC",
     "Niederlande:2022:5c": "3000000",
     "Niederlande:2023:5c": "25000000",
-    "Niederlande:2024:5c": "5000000",
+    "Niederlande:2024:5c": "5.000.000",
     "Niederlande:2025:5c": "CIRC",
     "Griechenland:2002:5c": "210950000",
     "Griechenland:2003:5c": "650000",
@@ -36269,8 +36362,8 @@
     "Griechenland:2020:5c": "13000000",
     "Griechenland:2021:5c": "16000000",
     "Griechenland:2022:5c": "24000000",
-    "Griechenland:2023:5c": "13000000",
-    "Griechenland:2024:5c": "7000000",
+    "Griechenland:2023:5c": "13.000.000",
+    "Griechenland:2024:5c": "7.000.000",
     "Griechenland:2025:5c": "55000000",
     "Griechenland:2026:5c": "28000000",
     "Malta:2008:5c": "34000000",
@@ -36308,7 +36401,7 @@
     "Estland:2025:5c": "N/A",
     "Kroatien:2023:5c": "94144500",
     "Kroatien:2024:5c": "13088006",
-    "Kroatien:2025:5c": "15420000",
+    "Kroatien:2025:5c": "15.420.000",
     "Kroatien:2026:5c": "45000",
     "Bulgarien:2026:5c": "CIRC",
     "Monaca:2001:5c": "300000",
@@ -36531,7 +36624,7 @@
     "Niederlande:2020:20c": "NIFC",
     "Niederlande:2021:20c": "NIFC",
     "Niederlande:2022:20c": "1000000",
-    "Niederlande:2023:20c": "16000000",
+    "Niederlande:2023:20c": "16.000.000",
     "Niederlande:2024:20c": "10000000",
     "Niederlande:2025:20c": "CIRC",
     "Niederlande:2026:20c": "CIRC",
@@ -36861,7 +36954,7 @@
     "Malta:2020:1€": "1500000",
     "Malta:2021:1€": "1100000",
     "Malta:2022:1€": "NIFC",
-    "Malta:2023:1€": "1000000",
+    "Malta:2023:1€": "1.000.000",
     "Malta:2024:1€": "NIFC",
     "Malta:2025:1€": "NIFC",
     "Estland:2011:1€": "15951500",
@@ -36899,14 +36992,14 @@
     "Monaca:2013:1€": "NIFC",
     "Monaca:2014:1€": "1000272",
     "Monaca:2015:1€": "N/A",
-    "Monaca:2016:1€": "1000000",
+    "Monaca:2016:1€": "1.000.000",
     "Monaca:2017:1€": "NIFC",
     "Monaca:2018:1€": "1000000",
     "Monaca:2019:1€": "550000",
     "Monaca:2020:1€": "1087017",
     "Monaca:2021:1€": "1167728",
     "Monaca:2022:1€": "1180912",
-    "Monaca:2023:1€": "1256833",
+    "Monaca:2023:1€": "1.256.833",
     "Monaca:2024:1€": "1531092",
     "Monaca:2025:1€": "1573583",
     "Spanien:1999:2€": "60483000",
@@ -36943,7 +37036,7 @@
     "Niederlande:2002:2€": "37200000",
     "Niederlande:2003:2€": "1200000",
     "Niederlande:2004:2€": "300000",
-    "Niederlande:2005:2€": "200000",
+    "Niederlande:2005:2€": "200.000",
     "Niederlande:2006:2€": "100000",
     "Niederlande:2007:2€": "100000",
     "Niederlande:2008:2€": "100000",
@@ -37052,7 +37145,7 @@
     "Monaca:2022:2€": "1050000",
     "Monaca:2023:2€": "1000000",
     "Monaca:2024:2€": "1000000",
-    "Monaca:2025:2€": "1207000",
+    "Monaca:2025:2€": "1.207.000",
     "Spanien:1999:CC1": "N/A",
     "Spanien:2000:CC1": "N/A",
     "Spanien:2001:CC1": "N/A",
@@ -37120,7 +37213,7 @@
     "Griechenland:2010:CC1": "2500000",
     "Griechenland:2011:CC1": "1000000",
     "Griechenland:2012:CC1": "N/A",
-    "Griechenland:2013:CC1": "750000",
+    "Griechenland:2013:CC1": "750.000",
     "Griechenland:2014:CC1": "750000",
     "Griechenland:2015:CC1": "750000",
     "Griechenland:2016:CC1": "750000",
@@ -37133,7 +37226,7 @@
     "Griechenland:2023:CC1": "750000",
     "Griechenland:2024:CC1": "750000",
     "Griechenland:2025:CC1": "750000",
-    "Griechenland:2026:CC1": "740500",
+    "Griechenland:2026:CC1": "740.500",
     "Malta:2008:CC1": "N/A",
     "Malta:2009:CC1": "N/A",
     "Malta:2010:CC1": "N/A",
@@ -37143,7 +37236,7 @@
     "Malta:2014:CC1": "300000",
     "Malta:2015:CC1": "325000",
     "Malta:2016:CC1": "410000",
-    "Malta:2017:CC1": "405000",
+    "Malta:2017:CC1": "405.000",
     "Malta:2018:CC1": "335000",
     "Malta:2019:CC1": "335000",
     "Malta:2020:CC1": "180000",
@@ -37157,7 +37250,7 @@
     "Estland:2013:CC1": "N/A",
     "Estland:2014:CC1": "N/A",
     "Estland:2015:CC1": "N/A",
-    "Estland:2016:CC1": "495000",
+    "Estland:2016:CC1": "495.000",
     "Estland:2017:CC1": "1490000",
     "Estland:2018:CC1": "485000",
     "Estland:2019:CC1": "990000",
@@ -37166,7 +37259,7 @@
     "Estland:2022:CC1": "990000",
     "Estland:2023:CC1": "988000",
     "Estland:2024:CC1": "990000",
-    "Estland:2025:CC1": "841500",
+    "Estland:2025:CC1": "841.500",
     "Estland:2026:CC1": "CIRC",
     "Kroatien:2023:CC1": "<40.000",
     "Kroatien:2024:CC1": "<40.000",
@@ -37266,9 +37359,9 @@
     "Griechenland:2011:CC2": "N/A",
     "Griechenland:2012:CC2": "N/A",
     "Griechenland:2013:CC2": "750000",
-    "Griechenland:2014:CC2": "750000",
+    "Griechenland:2014:CC2": "750.000",
     "Griechenland:2015:CC2": "N/A",
-    "Griechenland:2016:CC2": "750000",
+    "Griechenland:2016:CC2": "750.000",
     "Griechenland:2017:CC2": "750000",
     "Griechenland:2018:CC2": "750000",
     "Griechenland:2019:CC2": "750000",
@@ -37277,7 +37370,7 @@
     "Griechenland:2022:CC2": "N/A",
     "Griechenland:2023:CC2": "750000",
     "Griechenland:2024:CC2": "750000",
-    "Griechenland:2025:CC2": "750000",
+    "Griechenland:2025:CC2": "750.000",
     "Griechenland:2026:CC2": "740500",
     "Malta:2008:CC2": "N/A",
     "Malta:2009:CC2": "N/A",
@@ -37394,7 +37487,7 @@
     "Niederlande:2019:CC3": "N/A",
     "Niederlande:2020:CC3": "N/A",
     "Niederlande:2021:CC3": "N/A",
-    "Niederlande:2022:CC3": "570000",
+    "Niederlande:2022:CC3": "570.000",
     "Niederlande:2023:CC3": "N/A",
     "Niederlande:2024:CC3": "N/A",
     "Niederlande:2025:CC3": "N/A",
@@ -37425,7 +37518,7 @@
     "Griechenland:2025:CC3": "N/A",
     "Griechenland:2026:CC3": "N/A",
     "Malta:2008:CC3": "N/A",
-    "Malta:2009:CC3": "700000",
+    "Malta:2009:CC3": "700.000",
     "Malta:2010:CC3": "N/A",
     "Malta:2011:CC3": "N/A",
     "Malta:2012:CC3": "500000",
@@ -37549,21 +37642,21 @@
     "Luxemburg:2006:1c": "4000000",
     "Luxemburg:2007:1c": "6000000",
     "Luxemburg:2008:1c": "10000000",
-    "Luxemburg:2009:1c": "4000000",
+    "Luxemburg:2009:1c": "4.000.000",
     "Luxemburg:2010:1c": "6000000",
     "Luxemburg:2011:1c": "7600000",
     "Luxemburg:2012:1c": "9200000",
     "Luxemburg:2013:1c": "5100000",
     "Luxemburg:2014:1c": "10000000",
-    "Luxemburg:2015:1c": "5000000",
-    "Luxemburg:2016:1c": "5000000",
+    "Luxemburg:2015:1c": "5.000.000",
+    "Luxemburg:2016:1c": "5.000.000",
     "Luxemburg:2017:1c": "50000",
     "Luxemburg:2018:1c": "50000",
     "Luxemburg:2019:1c": "50000",
     "Luxemburg:2020:1c": "50000",
     "Luxemburg:2021:1c": "50000",
     "Luxemburg:2022:1c": "50000",
-    "Luxemburg:2024:1c": "50000",
+    "Luxemburg:2024:1c": "50.000",
     "Luxemburg:2025:1c": "50000",
     "Luxemburg:2026:1c": "1000000",
     "Portugal:2002:1c": "278106172",
@@ -37715,14 +37808,14 @@
     "Luxemburg:2004:2c": "20001000",
     "Luxemburg:2005:2c": "13000000",
     "Luxemburg:2006:2c": "4000000",
-    "Luxemburg:2007:2c": "8000000",
+    "Luxemburg:2007:2c": "8.000.000",
     "Luxemburg:2008:2c": "12000000",
     "Luxemburg:2009:2c": "3000000",
-    "Luxemburg:2010:2c": "8000000",
+    "Luxemburg:2010:2c": "8.000.000",
     "Luxemburg:2011:2c": "6200000",
     "Luxemburg:2012:2c": "7200000",
     "Luxemburg:2013:2c": "7100000",
-    "Luxemburg:2014:2c": "10000000",
+    "Luxemburg:2014:2c": "10.000.000",
     "Luxemburg:2015:2c": "7000000",
     "Luxemburg:2016:2c": "7000000",
     "Luxemburg:2017:2c": "50000",
@@ -37731,7 +37824,7 @@
     "Luxemburg:2020:2c": "50000",
     "Luxemburg:2021:2c": "50000",
     "Luxemburg:2022:2c": "50000",
-    "Luxemburg:2024:2c": "50000",
+    "Luxemburg:2024:2c": "50.000",
     "Luxemburg:2025:2c": "50000",
     "Luxemburg:2026:2c": "1000000",
     "Portugal:2002:2c": "324376590",
@@ -37848,7 +37941,7 @@
     "Italien:2021:5c": "60000000",
     "Italien:2022:5c": "50000000",
     "Italien:2023:5c": "69977000",
-    "Italien:2024:5c": "200000000",
+    "Italien:2024:5c": "200.000.000",
     "Italien:2025:5c": "CIRC",
     "Finnland:1999:5c": "63297000",
     "Finnland:2000:5c": "56577000",
@@ -37889,17 +37982,17 @@
     "Luxemburg:2010:5c": "6000000",
     "Luxemburg:2011:5c": "6700000",
     "Luxemburg:2012:5c": "5200000",
-    "Luxemburg:2013:5c": "7100000",
+    "Luxemburg:2013:5c": "7.100.000",
     "Luxemburg:2014:5c": "10000000",
     "Luxemburg:2015:5c": "6000000",
     "Luxemburg:2016:5c": "6000000",
     "Luxemburg:2017:5c": "50000",
-    "Luxemburg:2018:5c": "1450000",
+    "Luxemburg:2018:5c": "1.450.000",
     "Luxemburg:2019:5c": "50000",
-    "Luxemburg:2020:5c": "2050000",
-    "Luxemburg:2021:5c": "3050000",
-    "Luxemburg:2022:5c": "3050000",
-    "Luxemburg:2024:5c": "2050000",
+    "Luxemburg:2020:5c": "2.050.000",
+    "Luxemburg:2021:5c": "3.050.000",
+    "Luxemburg:2022:5c": "3.050.000",
+    "Luxemburg:2024:5c": "2.050.000",
     "Luxemburg:2025:5c": "1550000",
     "Luxemburg:2026:5c": "1300000",
     "Portugal:2002:5c": "234512047",
@@ -38066,8 +38159,8 @@
     "Luxemburg:2019:10c": "50000",
     "Luxemburg:2020:10c": "1550000",
     "Luxemburg:2021:10c": "50000",
-    "Luxemburg:2022:10c": "2050000",
-    "Luxemburg:2024:10c": "1050000",
+    "Luxemburg:2022:10c": "2.050.000",
+    "Luxemburg:2024:10c": "1.050.000",
     "Luxemburg:2025:10c": "3050000",
     "Luxemburg:2026:10c": "500000",
     "Portugal:2002:10c": "220289835",
@@ -38235,7 +38328,7 @@
     "Luxemburg:2020:20c": "50000",
     "Luxemburg:2021:20c": "3050000",
     "Luxemburg:2022:20c": "1050000",
-    "Luxemburg:2024:20c": "3050000",
+    "Luxemburg:2024:20c": "3.050.000",
     "Luxemburg:2025:20c": "3050000",
     "Luxemburg:2026:20c": "3000000",
     "Portugal:2002:20c": "147411038",
@@ -38403,7 +38496,7 @@
     "Luxemburg:2020:50c": "50000",
     "Luxemburg:2021:50c": "50000",
     "Luxemburg:2022:50c": "50000",
-    "Luxemburg:2024:50c": "1050000",
+    "Luxemburg:2024:50c": "1.050.000",
     "Luxemburg:2025:50c": "550000",
     "Luxemburg:2026:50c": "1600000",
     "Portugal:2002:50c": "151947133",
@@ -38432,7 +38525,7 @@
     "Portugal:2025:50c": "5000000",
     "Zypern:2008:50c": "30000000",
     "Zypern:2009:50c": "1000000",
-    "Zypern:2010:50c": "200000",
+    "Zypern:2010:50c": "200.000",
     "Zypern:2011:50c": "200000",
     "Zypern:2012:50c": "1000000",
     "Zypern:2013:50c": "90000",
@@ -38537,7 +38630,7 @@
     "Finnland:2011:1€": "755000",
     "Finnland:2012:1€": "724500",
     "Finnland:2013:1€": "341500",
-    "Finnland:2014:1€": "119100",
+    "Finnland:2014:1€": "119.100",
     "Finnland:2015:1€": "162100",
     "Finnland:2016:1€": "167100",
     "Finnland:2017:1€": "69100",
@@ -38571,7 +38664,7 @@
     "Luxemburg:2020:1€": "50000",
     "Luxemburg:2021:1€": "50000",
     "Luxemburg:2022:1€": "50000",
-    "Luxemburg:2024:1€": "50000",
+    "Luxemburg:2024:1€": "50.000",
     "Luxemburg:2025:1€": "50000",
     "Luxemburg:2026:1€": "560000",
     "Portugal:2002:1€": "100228135",
@@ -38704,12 +38797,12 @@
     "Finnland:2010:2€": "3938000",
     "Finnland:2011:2€": "5155000",
     "Finnland:2012:2€": "3234000",
-    "Finnland:2013:2€": "853500",
-    "Finnland:2014:2€": "126100",
-    "Finnland:2015:2€": "169100",
-    "Finnland:2016:2€": "172100",
-    "Finnland:2017:2€": "74900",
-    "Finnland:2018:2€": "2040500",
+    "Finnland:2013:2€": "853.500",
+    "Finnland:2014:2€": "126.100",
+    "Finnland:2015:2€": "169.100",
+    "Finnland:2016:2€": "172.100",
+    "Finnland:2017:2€": "74.900",
+    "Finnland:2018:2€": "2.040.500",
     "Finnland:2019:2€": "5970000",
     "Finnland:2020:2€": "NIFC",
     "Finnland:2021:2€": "NIFC",
@@ -38739,7 +38832,7 @@
     "Luxemburg:2020:2€": "50000",
     "Luxemburg:2021:2€": "50000",
     "Luxemburg:2022:2€": "50000",
-    "Luxemburg:2024:2€": "3050000",
+    "Luxemburg:2024:2€": "3.050.000",
     "Luxemburg:2025:2€": "570000",
     "Luxemburg:2026:2€": "3200000",
     "Portugal:2002:2€": "61930775",
@@ -38857,7 +38950,7 @@
     "Italien:2022:CC1": "3000000",
     "Italien:2023:CC1": "3000000",
     "Italien:2024:CC1": "3000000",
-    "Italien:2025:CC1": "3000000",
+    "Italien:2025:CC1": "3.000.000",
     "Italien:2026:CC1": "???",
     "Finnland:1999:CC1": "N/A",
     "Finnland:2000:CC1": "N/A",
@@ -38878,7 +38971,7 @@
     "Finnland:2015:CC1": "1000000",
     "Finnland:2016:CC1": "1000000",
     "Finnland:2017:CC1": "2500000",
-    "Finnland:2018:CC1": "1000000",
+    "Finnland:2018:CC1": "1.000.000",
     "Finnland:2019:CC1": "500000",
     "Finnland:2020:CC1": "720000",
     "Finnland:2021:CC1": "800000",
@@ -38897,7 +38990,7 @@
     "Luxemburg:2009:CC1": "800000",
     "Luxemburg:2010:CC1": "500000",
     "Luxemburg:2011:CC1": "700000",
-    "Luxemburg:2012:CC1": "700000",
+    "Luxemburg:2012:CC1": "700.000",
     "Luxemburg:2013:CC1": "500000",
     "Luxemburg:2014:CC1": "500000",
     "Luxemburg:2015:CC1": "500000",
@@ -38954,7 +39047,7 @@
     "Zypern:2023:CC1": "400000",
     "Zypern:2024:CC1": "NIFC",
     "Zypern:2025:CC1": "N/A",
-    "Zypern:2026:CC1": "250000",
+    "Zypern:2026:CC1": "250.000",
     "Lettland/Latvia:2014:CC1": "1000000",
     "Lettland/Latvia:2015:CC1": "1000000",
     "Lettland/Latvia:2016:CC1": "1000000",
@@ -39048,7 +39141,7 @@
     "Finnland:2015:CC2": "500000",
     "Finnland:2016:CC2": "1000000",
     "Finnland:2017:CC2": "500000",
-    "Finnland:2018:CC2": "1000000",
+    "Finnland:2018:CC2": "1.000.000",
     "Finnland:2019:CC2": "N/A",
     "Finnland:2020:CC2": "700000",
     "Finnland:2021:CC2": "800000",
@@ -39073,7 +39166,7 @@
     "Luxemburg:2015:CC2": "500000",
     "Luxemburg:2016:CC2": "N/A",
     "Luxemburg:2017:CC2": "300000",
-    "Luxemburg:2018:CC2": "300000",
+    "Luxemburg:2018:CC2": "300.000",
     "Luxemburg:2019:CC2": "300000",
     "Luxemburg:2020:CC2": "160000",
     "Luxemburg:2021:CC2": "160000",
@@ -39234,7 +39327,7 @@
     "Luxemburg:2006:CC3": "N/A",
     "Luxemburg:2007:CC3": "2000000",
     "Luxemburg:2008:CC3": "N/A",
-    "Luxemburg:2009:CC3": "800000",
+    "Luxemburg:2009:CC3": "800.000",
     "Luxemburg:2010:CC3": "N/A",
     "Luxemburg:2011:CC3": "N/A",
     "Luxemburg:2012:CC3": "500000",
@@ -39264,7 +39357,7 @@
     "Portugal:2012:CC3": "500000",
     "Portugal:2013:CC3": "N/A",
     "Portugal:2014:CC3": "N/A",
-    "Portugal:2015:CC3": "500000",
+    "Portugal:2015:CC3": "500.000",
     "Portugal:2016:CC3": "N/A",
     "Portugal:2017:CC3": "N/A",
     "Portugal:2018:CC3": "N/A",
@@ -39456,7 +39549,7 @@
     "Deutschland:2023:1c:D": "30240000",
     "Deutschland:2023:1c:F": "34560000",
     "Deutschland:2023:1c:G": "20160000",
-    "Deutschland:2023:1c:J": "30240000",
+    "Deutschland:2023:1c:J": "30.240.000",
     "Deutschland:2024:1c:A": "14000000",
     "Deutschland:2024:1c:D": "14700000",
     "Deutschland:2024:1c:F": "16800000",
@@ -39536,7 +39629,7 @@
     "Deutschland:2014:2c:D": "64890000",
     "Deutschland:2014:2c:F": "74160000",
     "Deutschland:2014:2c:G": "43260000",
-    "Deutschland:2014:2c:J": "64890000",
+    "Deutschland:2014:2c:J": "64.890.000",
     "Deutschland:2015:2c:A": "76000000",
     "Deutschland:2015:2c:D": "79800000",
     "Deutschland:2015:2c:F": "91200000",
@@ -39565,7 +39658,7 @@
     "Deutschland:2020:2c:A": "65800000",
     "Deutschland:2020:2c:D": "69090000",
     "Deutschland:2020:2c:F": "78960000",
-    "Deutschland:2020:2c:G": "46060000",
+    "Deutschland:2020:2c:G": "46.060.000",
     "Deutschland:2020:2c:J": "69090000",
     "Deutschland:2021:2c:A": "97600000",
     "Deutschland:2021:2c:D": "102480000",
@@ -39836,7 +39929,7 @@
     "Deutschland:2024:10c:D": "10290000",
     "Deutschland:2024:10c:F": "11760000",
     "Deutschland:2024:10c:G": "6860000",
-    "Deutschland:2024:10c:J": "10290000",
+    "Deutschland:2024:10c:J": "10.290.000",
     "Deutschland:2025:10c:A": "NIFC",
     "Deutschland:2025:10c:D": "NIFC",
     "Deutschland:2025:10c:F": "NIFC",
@@ -40425,7 +40518,7 @@
     "Deutschland:2017:CC1:A": "6000000",
     "Deutschland:2017:CC1:D": "6300000",
     "Deutschland:2017:CC1:F": "7200000",
-    "Deutschland:2017:CC1:G": "4200000",
+    "Deutschland:2017:CC1:G": "4.200.000",
     "Deutschland:2017:CC1:J": "6300000",
     "Deutschland:2018:CC1:A": "6.000.000",
     "Deutschland:2018:CC1:D": "6.000.000",
@@ -42765,6 +42858,1146 @@
           }
         }
       }
+    },
+    {
+      "type": "cell",
+      "ref": "Österreich:2003:10c",
+      "mint": "A",
+      "prev": "",
+      "new": "0*",
+      "country": "Österreich",
+      "year": "2003",
+      "denom": "10c"
+    },
+    {
+      "type": "cell",
+      "ref": "Österreich:2003:10c",
+      "mint": "A",
+      "prev": "0*",
+      "new": "",
+      "country": "Österreich",
+      "year": "2003",
+      "denom": "10c"
+    },
+    {
+      "type": "cell",
+      "ref": "Österreich:2012:50c",
+      "mint": "A",
+      "prev": "",
+      "new": "[Ph]",
+      "country": "Österreich",
+      "year": "2012",
+      "denom": "50c"
+    },
+    {
+      "type": "cell",
+      "ref": "Österreich:2012:50c",
+      "mint": "A",
+      "prev": "[Ph]",
+      "new": "",
+      "country": "Österreich",
+      "year": "2012",
+      "denom": "50c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2012:CC1",
+      "mint": "A",
+      "prev": "",
+      "new": "3",
+      "country": "Luxemburg",
+      "year": "2012",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "Griechenland:2016:CC2",
+      "mint": "A",
+      "prev": "",
+      "new": "5",
+      "country": "Griechenland",
+      "year": "2016",
+      "denom": "CC2"
+    },
+    {
+      "type": "cell",
+      "ref": "Griechenland:2026:CC1",
+      "mint": "A",
+      "prev": "",
+      "new": "0°",
+      "country": "Griechenland",
+      "year": "2026",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "Spanien:2026:CC1",
+      "mint": "A",
+      "prev": "",
+      "new": "0°",
+      "country": "Spanien",
+      "year": "2026",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "San Marino:2022:2€",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "San Marino",
+      "year": "2022",
+      "denom": "2€"
+    },
+    {
+      "type": "cell",
+      "ref": "San Marino:2013:2€",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "San Marino",
+      "year": "2013",
+      "denom": "2€"
+    },
+    {
+      "type": "cell",
+      "ref": "Monaca:2016:1€",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "Monaca",
+      "year": "2016",
+      "denom": "1€"
+    },
+    {
+      "type": "cell",
+      "ref": "Frankreich:2024:50c",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "Frankreich",
+      "year": "2024",
+      "denom": "50c"
+    },
+    {
+      "type": "cell",
+      "ref": "San Marino:2013:1€",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "San Marino",
+      "year": "2013",
+      "denom": "1€"
+    },
+    {
+      "type": "cell",
+      "ref": "Malta:2023:1€",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "Malta",
+      "year": "2023",
+      "denom": "1€"
+    },
+    {
+      "type": "cell",
+      "ref": "Belgien:2017:1c",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "Belgien",
+      "year": "2017",
+      "denom": "1c"
+    },
+    {
+      "type": "cell",
+      "ref": "Belgien:2025:CC1",
+      "mint": "A",
+      "prev": "",
+      "new": "1°",
+      "country": "Belgien",
+      "year": "2025",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "San Marino:2018:50c",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "San Marino",
+      "year": "2018",
+      "denom": "50c"
+    },
+    {
+      "type": "cell",
+      "ref": "Niederlande:2023:20c",
+      "mint": "A",
+      "prev": "",
+      "new": "1°",
+      "country": "Niederlande",
+      "year": "2023",
+      "denom": "20c"
+    },
+    {
+      "type": "cell",
+      "ref": "Niederlande:2024:5c",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "Niederlande",
+      "year": "2024",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2024:10c",
+      "mint": "A",
+      "prev": "",
+      "new": "1°",
+      "country": "Luxemburg",
+      "year": "2024",
+      "denom": "10c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2022:10c",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "Luxemburg",
+      "year": "2022",
+      "denom": "10c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2013:5c",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "Luxemburg",
+      "year": "2013",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2018:5c",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "Luxemburg",
+      "year": "2018",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2020:5c",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "Luxemburg",
+      "year": "2020",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2021:5c",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "Luxemburg",
+      "year": "2021",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2022:5c",
+      "mint": "A",
+      "prev": "",
+      "new": "1°",
+      "country": "Luxemburg",
+      "year": "2022",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2023 KNM:5c",
+      "mint": "A",
+      "prev": "",
+      "new": "1°",
+      "country": "Luxemburg",
+      "year": "2023 KNM",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2024:5c",
+      "mint": "A",
+      "prev": "",
+      "new": "1°",
+      "country": "Luxemburg",
+      "year": "2024",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2007:2c",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "Luxemburg",
+      "year": "2007",
+      "denom": "2c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2010:2c",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "Luxemburg",
+      "year": "2010",
+      "denom": "2c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2014:2c",
+      "mint": "A",
+      "prev": "",
+      "new": "1°",
+      "country": "Luxemburg",
+      "year": "2014",
+      "denom": "2c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2009:1c",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "Luxemburg",
+      "year": "2009",
+      "denom": "1c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2015:1c",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "Luxemburg",
+      "year": "2015",
+      "denom": "1c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2016:1c",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "Luxemburg",
+      "year": "2016",
+      "denom": "1c"
+    },
+    {
+      "type": "cell",
+      "ref": "Griechenland:EFS:10c",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "Griechenland",
+      "year": "EFS",
+      "denom": "10c"
+    },
+    {
+      "type": "cell",
+      "ref": "Italien:2025:5c",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "Italien",
+      "year": "2025",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Frankreich:2024:1c",
+      "mint": "A",
+      "prev": "",
+      "new": "1°",
+      "country": "Frankreich",
+      "year": "2024",
+      "denom": "1c"
+    },
+    {
+      "type": "cell",
+      "ref": "Frankreich:2019:2c",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "Frankreich",
+      "year": "2019",
+      "denom": "2c"
+    },
+    {
+      "type": "cell",
+      "ref": "Griechenland:2018:2c",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "Griechenland",
+      "year": "2018",
+      "denom": "2c"
+    },
+    {
+      "type": "cell_mint",
+      "ref": "Deutschland:2024:10c:J",
+      "mint": "J",
+      "prev": "",
+      "new": "1°1°",
+      "country": "Deutschland",
+      "year": "2024",
+      "denom": "10c"
+    },
+    {
+      "type": "cell_mint",
+      "ref": "Deutschland:2024:10c:J",
+      "mint": "J",
+      "prev": "1°1°",
+      "new": "1°",
+      "country": "Deutschland",
+      "year": "2024",
+      "denom": "10c"
+    },
+    {
+      "type": "cell_mint",
+      "ref": "Deutschland:2014:2c:J",
+      "mint": "J",
+      "prev": "",
+      "new": "3°",
+      "country": "Deutschland",
+      "year": "2014",
+      "denom": "2c"
+    },
+    {
+      "type": "cell_mint",
+      "ref": "Deutschland:2023:1c:J",
+      "mint": "J",
+      "prev": "",
+      "new": "1°",
+      "country": "Deutschland",
+      "year": "2023",
+      "denom": "1c"
+    },
+    {
+      "type": "cell_mint",
+      "ref": "Deutschland:2020:2c:G",
+      "mint": "G",
+      "prev": "",
+      "new": "1°",
+      "country": "Deutschland",
+      "year": "2020",
+      "denom": "2c"
+    },
+    {
+      "type": "cell",
+      "ref": "Belgien:2019:5c",
+      "mint": "G",
+      "prev": "",
+      "new": "5°",
+      "country": "Belgien",
+      "year": "2019",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Belgien:2024:5c",
+      "mint": "G",
+      "prev": "",
+      "new": "1°",
+      "country": "Belgien",
+      "year": "2024",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Belgien:2022:5c",
+      "mint": "G",
+      "prev": " ✔ 1/2 1°",
+      "new": "",
+      "country": "Belgien",
+      "year": "2022",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Belgien:2022:5c",
+      "mint": "G",
+      "prev": "",
+      "new": "[2/2°]",
+      "country": "Belgien",
+      "year": "2022",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Italien:2025:CC1",
+      "mint": "G",
+      "prev": "",
+      "new": "1°",
+      "country": "Italien",
+      "year": "2025",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "Slowakei:2025:1€",
+      "mint": "G",
+      "prev": "",
+      "new": "3°",
+      "country": "Slowakei",
+      "year": "2025",
+      "denom": "1€"
+    },
+    {
+      "type": "cell",
+      "ref": "Niederlande:2005:2€",
+      "mint": "G",
+      "prev": "",
+      "new": "5°",
+      "country": "Niederlande",
+      "year": "2005",
+      "denom": "2€"
+    },
+    {
+      "type": "cell",
+      "ref": "Niederlande:2022:CC3",
+      "mint": "G",
+      "prev": "",
+      "new": "5°",
+      "country": "Niederlande",
+      "year": "2022",
+      "denom": "CC3"
+    },
+    {
+      "type": "cell",
+      "ref": "Griechenland:2013:CC1",
+      "mint": "G",
+      "prev": "",
+      "new": "5°",
+      "country": "Griechenland",
+      "year": "2013",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "Griechenland:2025:CC2",
+      "mint": "G",
+      "prev": "",
+      "new": "1°",
+      "country": "Griechenland",
+      "year": "2025",
+      "denom": "CC2"
+    },
+    {
+      "type": "cell",
+      "ref": "Finnland:2018:CC2",
+      "mint": "G",
+      "prev": "",
+      "new": "5°",
+      "country": "Finnland",
+      "year": "2018",
+      "denom": "CC2"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2009:CC3",
+      "mint": "G",
+      "prev": "",
+      "new": "5°",
+      "country": "Luxemburg",
+      "year": "2009",
+      "denom": "CC3"
+    },
+    {
+      "type": "cell",
+      "ref": "Malta:2017:CC1",
+      "mint": "G",
+      "prev": "",
+      "new": "5°",
+      "country": "Malta",
+      "year": "2017",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "Slowenien:2026:CC1",
+      "mint": "A",
+      "prev": "",
+      "new": "0°",
+      "country": "Slowenien",
+      "year": "2026",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "Belgien:2025:CC1",
+      "mint": "A",
+      "prev": "1°",
+      "new": "1°0°",
+      "country": "Belgien",
+      "year": "2025",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "Slowakei:2026:CC2",
+      "mint": "A",
+      "prev": "",
+      "new": "0°",
+      "country": "Slowakei",
+      "year": "2026",
+      "denom": "CC2"
+    },
+    {
+      "type": "cell",
+      "ref": "Estland:2025:CC1",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "Estland",
+      "year": "2025",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "Estland:2016:CC1",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "Estland",
+      "year": "2016",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "Slowakei:2012:2€",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "Slowakei",
+      "year": "2012",
+      "denom": "2€"
+    },
+    {
+      "type": "cell",
+      "ref": "San Marino:2021:2€",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "San Marino",
+      "year": "2021",
+      "denom": "2€"
+    },
+    {
+      "type": "cell",
+      "ref": "San Marino:2023:2€",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "San Marino",
+      "year": "2023",
+      "denom": "2€"
+    },
+    {
+      "type": "cell",
+      "ref": "San Marino:2008:50c",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "San Marino",
+      "year": "2008",
+      "denom": "50c"
+    },
+    {
+      "type": "cell",
+      "ref": "Monaca:2023:1€",
+      "mint": "A",
+      "prev": "",
+      "new": "3°",
+      "country": "Monaca",
+      "year": "2023",
+      "denom": "1€"
+    },
+    {
+      "type": "cell",
+      "ref": "Malta:2009:CC3",
+      "mint": "A",
+      "prev": "",
+      "new": "1°",
+      "country": "Malta",
+      "year": "2009",
+      "denom": "CC3"
+    },
+    {
+      "type": "cell",
+      "ref": "Griechenland:2014:CC2",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "Griechenland",
+      "year": "2014",
+      "denom": "CC2"
+    },
+    {
+      "type": "cell",
+      "ref": "Finnland:2016:2€",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "Finnland",
+      "year": "2016",
+      "denom": "2€"
+    },
+    {
+      "type": "cell",
+      "ref": "Finnland:2017:2€",
+      "mint": "A",
+      "prev": "",
+      "new": "5°",
+      "country": "Finnland",
+      "year": "2017",
+      "denom": "2€"
+    },
+    {
+      "type": "cell-type",
+      "ref": "Finnland:2016:2€",
+      "mint": "A",
+      "prev": "",
+      "new": "yellow",
+      "country": "Finnland",
+      "year": "2016",
+      "denom": "2€"
+    },
+    {
+      "type": "cell-type",
+      "ref": "Finnland:2017:2€",
+      "mint": "A",
+      "prev": "",
+      "new": "yellow",
+      "country": "Finnland",
+      "year": "2017",
+      "denom": "2€"
+    },
+    {
+      "type": "cell-type",
+      "ref": "Finnland:2015:2€",
+      "mint": "A",
+      "prev": "",
+      "new": "yellow",
+      "country": "Finnland",
+      "year": "2015",
+      "denom": "2€"
+    },
+    {
+      "type": "cell-type",
+      "ref": "Finnland:2014:2€",
+      "mint": "A",
+      "prev": "",
+      "new": "yellow",
+      "country": "Finnland",
+      "year": "2014",
+      "denom": "2€"
+    },
+    {
+      "type": "cell-type",
+      "ref": "Finnland:2013:2€",
+      "mint": "A",
+      "prev": "",
+      "new": "yellow",
+      "country": "Finnland",
+      "year": "2013",
+      "denom": "2€"
+    },
+    {
+      "type": "cell-type",
+      "ref": "Finnland:2018:2€",
+      "mint": "A",
+      "prev": "",
+      "new": "blue",
+      "country": "Finnland",
+      "year": "2018",
+      "denom": "2€"
+    },
+    {
+      "type": "cell",
+      "ref": "Finnland:2014:1€",
+      "mint": "A",
+      "prev": "",
+      "new": "5°[bogdan]",
+      "country": "Finnland",
+      "year": "2014",
+      "denom": "1€"
+    },
+    {
+      "type": "cell",
+      "ref": "Finnland:2014:1€",
+      "mint": "A",
+      "prev": "5°[bogdan]",
+      "new": "5°",
+      "country": "Finnland",
+      "year": "2014",
+      "denom": "1€"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2024:1c",
+      "mint": "A",
+      "prev": "",
+      "new": "0*",
+      "country": "Luxemburg",
+      "year": "2024",
+      "denom": "1c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2024:2c",
+      "mint": "A",
+      "prev": "",
+      "new": "0*",
+      "country": "Luxemburg",
+      "year": "2024",
+      "denom": "2c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2024:5c",
+      "mint": "A",
+      "prev": "1°",
+      "new": "1°0*",
+      "country": "Luxemburg",
+      "year": "2024",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2024:10c",
+      "mint": "A",
+      "prev": "1°",
+      "new": "1°0*",
+      "country": "Luxemburg",
+      "year": "2024",
+      "denom": "10c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2024:20c",
+      "mint": "A",
+      "prev": "1°",
+      "new": "1°0*",
+      "country": "Luxemburg",
+      "year": "2024",
+      "denom": "20c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2024:50c",
+      "mint": "A",
+      "prev": "",
+      "new": "0*",
+      "country": "Luxemburg",
+      "year": "2024",
+      "denom": "50c"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2024:1€",
+      "mint": "A",
+      "prev": "",
+      "new": "0*",
+      "country": "Luxemburg",
+      "year": "2024",
+      "denom": "1€"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2024:2€",
+      "mint": "A",
+      "prev": "1",
+      "new": "10*",
+      "country": "Luxemburg",
+      "year": "2024",
+      "denom": "2€"
+    },
+    {
+      "type": "cell",
+      "ref": "San Marino:2019:50c",
+      "mint": "A",
+      "prev": "",
+      "new": "0*",
+      "country": "San Marino",
+      "year": "2019",
+      "denom": "50c"
+    },
+    {
+      "type": "cell",
+      "ref": "Estland:2026:CC1",
+      "mint": "A",
+      "prev": "",
+      "new": "0*",
+      "country": "Estland",
+      "year": "2026",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "Litauen/Lietuva:2025:CC2",
+      "mint": "A",
+      "prev": "",
+      "new": "0*",
+      "country": "Litauen/Lietuva",
+      "year": "2025",
+      "denom": "CC2"
+    },
+    {
+      "type": "cell",
+      "ref": "Litauen/Lietuva:2026:CC1",
+      "mint": "A",
+      "prev": "",
+      "new": "0*",
+      "country": "Litauen/Lietuva",
+      "year": "2026",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "Irland:2026:CC1",
+      "mint": "A",
+      "prev": "",
+      "new": "0*",
+      "country": "Irland",
+      "year": "2026",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "Portugal:2015:CC3",
+      "mint": "A",
+      "prev": "",
+      "new": "0*",
+      "country": "Portugal",
+      "year": "2015",
+      "denom": "CC3"
+    },
+    {
+      "type": "cell",
+      "ref": "Zypern:2026:CC1",
+      "mint": "A",
+      "prev": "",
+      "new": "0*",
+      "country": "Zypern",
+      "year": "2026",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "Spanien:2026:CC2",
+      "mint": "A",
+      "prev": "",
+      "new": "0*",
+      "country": "Spanien",
+      "year": "2026",
+      "denom": "CC2"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2012:CC1",
+      "mint": "A",
+      "prev": "3",
+      "new": "30*",
+      "country": "Luxemburg",
+      "year": "2012",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell",
+      "ref": "Zypern:2010:50c",
+      "mint": "A",
+      "prev": "",
+      "new": "5",
+      "country": "Zypern",
+      "year": "2010",
+      "denom": "50c"
+    },
+    {
+      "type": "cell",
+      "ref": "Italien:2024:5c",
+      "mint": "A",
+      "prev": "3°",
+      "new": "3°3",
+      "country": "Italien",
+      "year": "2024",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Italien:2025:5c",
+      "mint": "A",
+      "prev": "3°",
+      "new": "3°3",
+      "country": "Italien",
+      "year": "2025",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Italien:2025:5c",
+      "mint": "D",
+      "prev": "3°3",
+      "new": "3°",
+      "country": "Italien",
+      "year": "2025",
+      "denom": "5c"
+    },
+    {
+      "type": "cell_mint",
+      "ref": "Deutschland:2026:CC2:F",
+      "mint": "F",
+      "prev": "3",
+      "new": "31",
+      "country": "Deutschland",
+      "year": "2026",
+      "denom": "CC2"
+    },
+    {
+      "type": "cell",
+      "ref": "Luxemburg:2018:CC2",
+      "mint": "F",
+      "prev": "0*",
+      "new": "0*1",
+      "country": "Luxemburg",
+      "year": "2018",
+      "denom": "CC2"
+    },
+    {
+      "type": "cell",
+      "ref": "Monaca:2025:2€",
+      "mint": "F",
+      "prev": "",
+      "new": "3",
+      "country": "Monaca",
+      "year": "2025",
+      "denom": "2€"
+    },
+    {
+      "type": "cell",
+      "ref": "Niederlande:2026:2€",
+      "mint": "F",
+      "prev": "",
+      "new": "1",
+      "country": "Niederlande",
+      "year": "2026",
+      "denom": "2€"
+    },
+    {
+      "type": "cell_mint",
+      "ref": "Deutschland:2013:CC2:J",
+      "mint": "J",
+      "prev": "5",
+      "new": "51",
+      "country": "Deutschland",
+      "year": "2013",
+      "denom": "CC2"
+    },
+    {
+      "type": "cell",
+      "ref": "Belgien:2012:CC3",
+      "mint": "J",
+      "prev": "30*",
+      "new": "30*1",
+      "country": "Belgien",
+      "year": "2012",
+      "denom": "CC3"
+    },
+    {
+      "type": "cell_mint",
+      "ref": "Deutschland:2017:CC1:G",
+      "mint": "G",
+      "prev": "1",
+      "new": "1[proof]",
+      "country": "Deutschland",
+      "year": "2017",
+      "denom": "CC1"
+    },
+    {
+      "type": "cell_mint",
+      "ref": "Deutschland:2026:CC2:G",
+      "mint": "G",
+      "prev": "",
+      "new": "1",
+      "country": "Deutschland",
+      "year": "2026",
+      "denom": "CC2"
+    },
+    {
+      "type": "cell",
+      "ref": "Niederlande:2005:2€",
+      "mint": "F",
+      "prev": "5°",
+      "new": "5°5",
+      "country": "Niederlande",
+      "year": "2005",
+      "denom": "2€"
+    },
+    {
+      "type": "cell",
+      "ref": "Bulgarien:2026:5c",
+      "mint": "J",
+      "prev": "0*",
+      "new": "0*5",
+      "country": "Bulgarien",
+      "year": "2026",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Kroatien:2025:5c",
+      "mint": "J",
+      "prev": "",
+      "new": "5",
+      "country": "Kroatien",
+      "year": "2025",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Slowakei:2025:5c",
+      "mint": "J",
+      "prev": "",
+      "new": "1",
+      "country": "Slowakei",
+      "year": "2025",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Griechenland:2023:5c",
+      "mint": "J",
+      "prev": "",
+      "new": "5",
+      "country": "Griechenland",
+      "year": "2023",
+      "denom": "5c"
+    },
+    {
+      "type": "cell",
+      "ref": "Griechenland:2024:5c",
+      "mint": "J",
+      "prev": "",
+      "new": "1",
+      "country": "Griechenland",
+      "year": "2024",
+      "denom": "5c"
     }
   ],
   "redo_stack": [],
