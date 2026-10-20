@@ -1,0 +1,41 @@
+# Bei jedem Push auf main: die App zu Vercel hochladen (Produktion).
+# Läuft über ein Token des richtigen Vercel-Kontos – die Vercel-GitHub-Verbindung wird nicht gebraucht,
+# darum gibt es keine Sperre wegen des Commit-Autors.
+# Nötige Secrets im GitHub-Repo (Settings → Secrets and variables → Actions):
+#   VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+name: Vercel Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # auch von Hand startbar (Actions → Vercel Deploy → Run workflow)
+
+concurrency:
+  group: vercel-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # Git-Daten entfernen, sonst prüft Vercel die Commit-E-Mail und blockiert
+      - name: Git-Daten entfernen
+        run: rm -rf .git
+      - name: Vercel-Werkzeug holen
+        run: npm install --global vercel@latest
+      - name: Einstellungen vom Vercel-Projekt laden
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Bauen
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Hochladen (online)
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}

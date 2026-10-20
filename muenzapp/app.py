@@ -1,6 +1,6 @@
-import json, html as htmlmod, re, os, io, urllib.request, datetime, hashlib
-from flask import Flask, request, jsonify, send_file
-from openpyxl import Workbook
+import json, html as htmlmod, re, os, io, urllib.request, datetime, hashlib, hmac
+from flask import Flask, request, jsonify, send_file, session, redirect
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
 
@@ -71,13 +71,53 @@ def is_dark(hex_color: str) -> bool:
     r = int(hex_color[0:2], 16); g = int(hex_color[2:4], 16); b = int(hex_color[4:6], 16)
     return r * 0.299 + g * 0.587 + b * 0.114 < 140
 
-def load_doc() -> dict:
+# ─── Speicher: Upstash Redis (Vercel) oder data.json (lokal) ───
+# Auf Vercel kann man keine Dateien schreiben. Sind die Upstash-Variablen gesetzt,
+# liegt das ganze Dokument in Redis; sonst wie bisher in data.json.
+
+REDIS_URL = (os.environ.get('KV_REST_API_URL') or os.environ.get('UPSTASH_REDIS_REST_URL') or '').rstrip('/')
+REDIS_TOKEN = os.environ.get('KV_REST_API_TOKEN') or os.environ.get('UPSTASH_REDIS_REST_TOKEN') or ''
+USE_REDIS = bool(REDIS_URL and REDIS_TOKEN)
+REDIS_DOC_KEY = 'muenzapp:doc'
+REDIS_VER_KEY = 'muenzapp:ver'
+
+def _redis(*cmd):
+    body = json.dumps(list(cmd), ensure_ascii=False).encode('utf-8')
+    req = urllib.request.Request(REDIS_URL, data=body, method='POST', headers={
+        'Authorization': f'Bearer {REDIS_TOKEN}', 'Content-Type': 'application/json'})
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        res = json.loads(resp.read().decode('utf-8'))
+    if 'error' in res:
+        raise RuntimeError(f"Redis: {res['error']}")
+    return res.get('result')
+
+def _load_file_doc() -> dict:
     if os.path.exists(DATA_PATH):
         with open(DATA_PATH, 'r', encoding='utf-8') as f:
             return json.load(f)
     return {}
 
+_doc_ver = None  # Stand des Dokuments, das gerade im Speicher ist
+
+def load_doc() -> dict:
+    global _doc_ver
+    if not USE_REDIS:
+        return _load_file_doc()
+    raw = _redis('GET', REDIS_DOC_KEY)
+    if raw is None:
+        # Erster Start: data.json als Startdaten nach Redis kopieren
+        d = _load_file_doc()
+        save_doc(d)
+        return d
+    _doc_ver = _redis('GET', REDIS_VER_KEY)
+    return json.loads(raw)
+
 def save_doc(d: dict) -> None:
+    global _doc_ver
+    if USE_REDIS:
+        _redis('SET', REDIS_DOC_KEY, json.dumps(d, ensure_ascii=False, separators=(',', ':')))
+        _doc_ver = str(_redis('INCR', REDIS_VER_KEY))
+        return
     tmp = DATA_PATH + '.tmp'
     with open(tmp, 'w', encoding='utf-8') as f:
         json.dump(d, f, ensure_ascii=False, indent=2)
@@ -1005,6 +1045,78 @@ def generate_html(mint_arg='', layout=''):
 </body>
 </html>'''
     return h
+
+
+# ─── Vor jeder Anfrage: Daten frisch halten (Redis) ───
+# Auf Vercel laufen mehrere Kopien der App. Hat eine andere Kopie gespeichert,
+# laden wir das Dokument neu, damit niemand alte Daten überschreibt.
+
+def _apply_doc(d: dict) -> None:
+    global doc, COINS, COINS_MINT, MINTAGE, MINTAGE_MINT, CC_NAMES, IMAGE_LINKS_MINT, FILL_COLORS, COUNTRIES, COUNTRY_YEARS, EXTENSIONS, UNDO_STACK, REDO_STACK, _COIN_YEARS
+    doc = d
+    COINS = doc.get('coins', {})
+    COINS_MINT = doc.get('coins_mint', {})
+    MINTAGE = doc.get('mintage', {})
+    MINTAGE_MINT = doc.get('mintage_mint', {})
+    CC_NAMES = doc.get('cc_coin_names', {})
+    IMAGE_LINKS_MINT = doc.get('image_links_mint', {})
+    FILL_COLORS = doc.get('fill_colors', {})
+    COUNTRIES = doc.get('countries', [])
+    COUNTRY_YEARS = doc.get('country_years', {})
+    EXTENSIONS = doc.get('extensions', {})
+    UNDO_STACK = doc.get('undo_stack', [])
+    REDO_STACK = doc.get('redo_stack', [])
+    _COIN_YEARS = _build_coin_years_cache()
+
+def refresh_doc():
+    if not USE_REDIS or request.endpoint in (None, 'static', 'login', 'logout'):
+        return
+    if _redis('GET', REDIS_VER_KEY) != _doc_ver:
+        _apply_doc(load_doc())
+
+
+# ─── Passwort ───
+# Ist APP_PASSWORD gesetzt, muss man sich einmal anmelden (Cookie für 30 Tage).
+
+APP_PASSWORD = os.environ.get('APP_PASSWORD', '')
+app.secret_key = os.environ.get('SESSION_SECRET') or hashlib.sha256(('muenzapp:' + APP_PASSWORD).encode()).hexdigest()
+app.permanent_session_lifetime = datetime.timedelta(days=30)
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('VERCEL'))
+
+LOGIN_HTML = '''<!doctype html><html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Anmelden</title>
+<style>body{font-family:system-ui,sans-serif;background:#f4f4f5;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+form{background:#fff;padding:28px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);width:280px}
+h1{font-size:20px;margin:0 0 16px}input,button{width:100%;box-sizing:border-box;padding:10px;font-size:16px;border-radius:8px}
+input{border:1px solid #ccc;margin-bottom:12px}button{border:0;background:#222;color:#fff;cursor:pointer}
+.err{color:#b00020;font-size:14px;margin:0 0 12px}</style></head><body>
+<form method="post"><h1>Münz-App</h1>{err}<input type="password" name="password" placeholder="Passwort" autofocus>
+<button type="submit">Anmelden</button></form></body></html>'''
+
+@app.before_request
+def require_login():
+    if not APP_PASSWORD or request.endpoint in ('static', 'login') or session.get('ok'):
+        return refresh_doc()
+    if request.path.startswith('/api/'):
+        return jsonify({'ok': False, 'error': 'Nicht angemeldet'}), 401
+    return redirect('/login')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    err = ''
+    if request.method == 'POST':
+        if APP_PASSWORD and hmac.compare_digest(request.form.get('password', ''), APP_PASSWORD):
+            session.permanent = True
+            session['ok'] = True
+            return redirect('/')
+        err = '<p class="err">Falsches Passwort.</p>'
+    return LOGIN_HTML.replace('{err}', err)
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect('/login')
 
 
 # ─── Routes ───
@@ -2011,7 +2123,7 @@ def export_data():
 
 @app.route('/api/import/data', methods=['POST'])
 def import_data():
-    global doc, COINS, COINS_MINT, MINTAGE, MINTAGE_MINT, CC_NAMES, IMAGE_LINKS_MINT, COUNTRIES, COUNTRY_YEARS, EXTENSIONS, UNDO_STACK, REDO_STACK
+    global doc, COINS, COINS_MINT, MINTAGE, MINTAGE_MINT, CC_NAMES, IMAGE_LINKS_MINT, FILL_COLORS, COUNTRIES, COUNTRY_YEARS, EXTENSIONS, UNDO_STACK, REDO_STACK
     raw = request.get_data(as_text=True)
     try:
         payload = json.loads(raw)
