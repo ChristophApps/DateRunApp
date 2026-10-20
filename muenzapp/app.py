@@ -97,6 +97,14 @@ def _load_file_doc() -> dict:
             return json.load(f)
     return {}
 
+REDIS_SEED_KEY = 'muenzapp:seed'
+
+def _file_hash() -> str:
+    if not os.path.exists(DATA_PATH):
+        return ''
+    with open(DATA_PATH, 'rb') as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
 _doc_ver = None  # Stand des Dokuments, das gerade im Speicher ist
 
 def load_doc() -> dict:
@@ -104,12 +112,17 @@ def load_doc() -> dict:
     if not USE_REDIS:
         return _load_file_doc()
     raw = _redis('GET', REDIS_DOC_KEY)
-    if raw is None:
-        # Erster Start: data.json als Startdaten nach Redis kopieren
+    ver = _redis('GET', REDIS_VER_KEY)
+    seed = _file_hash()
+    # Erster Start, oder neue data.json und online noch nichts geändert (Stand 1):
+    # data.json als Startdaten nach Redis kopieren
+    if raw is None or (ver == '1' and _redis('GET', REDIS_SEED_KEY) != seed):
+        _redis('DEL', REDIS_VER_KEY)
         d = _load_file_doc()
         save_doc(d)
+        _redis('SET', REDIS_SEED_KEY, seed)
         return d
-    _doc_ver = _redis('GET', REDIS_VER_KEY)
+    _doc_ver = ver
     return json.loads(raw)
 
 def save_doc(d: dict) -> None:
