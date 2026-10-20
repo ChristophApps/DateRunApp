@@ -576,6 +576,11 @@ def generate_html(mint_arg='', layout=''):
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>M\u00fcnzApp</title>
 <link rel="stylesheet" href="/static/style.css">
+<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="M\u00fcnzApp">
+<meta name="theme-color" content="#003399">
 </head>
 <body>
 <div id="stickyHeader"><div style="margin-bottom:6px">
@@ -1083,7 +1088,7 @@ def _apply_doc(d: dict) -> None:
     _COIN_YEARS = _build_coin_years_cache()
 
 def refresh_doc():
-    if not USE_REDIS or request.endpoint in (None, 'static', 'login', 'logout'):
+    if not USE_REDIS or request.endpoint in (None, 'static', 'login', 'logout', 'touch_icon', 'favicon'):
         return
     if _redis('GET', REDIS_VER_KEY) != _doc_ver:
         _apply_doc(load_doc())
@@ -1100,6 +1105,11 @@ app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('VERCEL'))
 
 LOGIN_HTML = '''<!doctype html><html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Anmelden</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="M\u00fcnzApp">
+<meta name="theme-color" content="#003399">
 <style>body{font-family:system-ui,sans-serif;background:#f4f4f5;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
 form{background:#fff;padding:28px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);width:280px}
 h1{font-size:20px;margin:0 0 16px}input,button{width:100%;box-sizing:border-box;padding:10px;font-size:16px;border-radius:8px}
@@ -1110,11 +1120,20 @@ input{border:1px solid #ccc;margin-bottom:12px}button{border:0;background:#222;c
 
 @app.before_request
 def require_login():
-    if not APP_PASSWORD or request.endpoint in ('static', 'login') or session.get('ok'):
+    if not APP_PASSWORD or request.endpoint in ('static', 'login', 'touch_icon', 'favicon') or session.get('ok'):
         return refresh_doc()
     if request.path.startswith('/api/'):
         return jsonify({'ok': False, 'error': 'Nicht angemeldet'}), 401
     return redirect('/login')
+
+@app.route('/apple-touch-icon.png')
+@app.route('/apple-touch-icon-precomposed.png')
+def touch_icon():
+    return app.send_static_file('apple-touch-icon.png')
+
+@app.route('/favicon.ico')
+def favicon():
+    return app.send_static_file('favicon-32.png')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
