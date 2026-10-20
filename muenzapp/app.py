@@ -588,6 +588,7 @@ def generate_html(mint_arg='', layout=''):
 <div class="data-dropdown" id="dataDropdown" style="display:none">
   <span class="data-dropdown-item" id="dropdownExport">\U0001f4e4 Exportieren</span>
   <span class="data-dropdown-item" id="dropdownImport">\U0001f4e5 Importieren</span>
+  <span class="data-dropdown-item" id="dropdownDataJson">\U0001f4be data.json (offline)</span>
 </div>
 </span>
 <span class="edit-btn" id="editBtn">\U0001f4dd Bearbeiten</span>
@@ -2133,6 +2134,13 @@ def export_data():
     fname = f'muenzapp-backup-{datetime.date.today().isoformat()}.txt'
     return (json.dumps(payload, ensure_ascii=False, indent=2),
             200, {'Content-Type': 'text/plain; charset=utf-8', 'Content-Disposition': f'attachment; filename="{fname}"'})
+
+@app.route('/api/export/data-json', methods=['GET'])
+def export_data_json():
+    # Ganzes Dokument im selben Format wie muenzapp/data.json – zum Ersetzen der Datei für offline
+    fname = f'data-{datetime.date.today().isoformat()}.json'
+    return (json.dumps(doc, ensure_ascii=False, indent=2),
+            200, {'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': f'attachment; filename="{fname}"'})
 
 @app.route('/api/import/data', methods=['POST'])
 def import_data():

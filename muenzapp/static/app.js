@@ -957,6 +957,11 @@
     showMsg('Daten-Export wird gestartet...');
     window.location.href = '/api/export/data';
   });
+  document.getElementById('dropdownDataJson').addEventListener('click', function() {
+    closeDataDropdown();
+    showMsg('data.json wird heruntergeladen...');
+    window.location.href = '/api/export/data-json';
+  });
   document.getElementById('dropdownImport').addEventListener('click', function() {
     closeDataDropdown();
     var inp = document.createElement('input');
